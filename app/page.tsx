@@ -107,7 +107,17 @@ export default function Home() {
                   placeholder="Enter GitHub username"
                   className="flex-1 w-full bg-transparent border-none focus:outline-none focus:ring-0 text-lg font-medium py-3 px-3 placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
                   spellCheck={false}
+                  autoFocus
                 />
+                {username && (
+                  <button
+                    type="button"
+                    onClick={() => { setUsername(""); setStats(null); setError(""); }}
+                    className="mr-2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={!mounted || isLoading || username.trim() === ""}
@@ -130,6 +140,23 @@ export default function Home() {
                 {error}
               </p>
             )}
+
+            {/* Quick Suggestions */}
+            <div className="mt-4 flex items-center justify-center lg:justify-start gap-2 text-sm text-zinc-500 font-medium">
+              <span>Try:</span>
+              {["torvalds", "getify", "bijay-shre-stha"].map(user => (
+                <button
+                  key={user}
+                  type="button"
+                  onClick={() => {
+                    setUsername(user);
+                  }}
+                  className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors"
+                >
+                  {user}
+                </button>
+              ))}
+            </div>
             
             {/* Theme Selector */}
             <div className="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-2">
@@ -157,16 +184,30 @@ export default function Home() {
 
         {/* Right Column: Stats Result or Empty State */}
         <div className="w-full lg:w-[55%] xl:w-1/2 min-h-[400px] flex items-center justify-center lg:justify-end">
-          {stats ? (
-            <div className="w-full animate-in fade-in zoom-in-95 duration-500">
+          {isLoading && !stats ? (
+            <div className="flex flex-col items-center justify-center opacity-70 animate-in fade-in zoom-in-95 duration-500">
+              <div className="relative flex items-center justify-center w-24 h-24 mb-6">
+                <div className="absolute inset-0 rounded-full border-4 border-zinc-200 dark:border-zinc-800"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-green-500 border-t-transparent animate-spin"></div>
+                <Zap className="text-zinc-400 dark:text-zinc-500 animate-pulse" size={28} />
+              </div>
+              <p className="text-zinc-500 font-medium animate-pulse">Calculating streak...</p>
+            </div>
+          ) : stats ? (
+            <div className="w-full animate-in fade-in flex flex-col gap-6 zoom-in-95 duration-500">
               <StreakCard stats={stats} themeName={theme} />
+              <div className="flex justify-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 shadow-sm border border-zinc-200 dark:border-zinc-800">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-200">Tip:</span> You can embed this in your GitHub README!
+                </div>
+              </div>
             </div>
           ) : (
-             <div className="flex flex-col items-center justify-center opacity-50 dark:opacity-30 user-select-none">
-              <div className="w-32 h-32 border-4 border-dashed border-zinc-300 dark:border-zinc-700 rounded-full flex items-center justify-center mb-6">
-                <FolderGit2 size={48} className="text-zinc-400 dark:text-zinc-600" />
+             <div className="flex flex-col items-center justify-center opacity-50 dark:opacity-40 user-select-none transition-opacity duration-300 hover:opacity-70 dark:hover:opacity-60">
+              <div className="w-32 h-32 border-4 border-dashed border-zinc-300 dark:border-zinc-700 rounded-full flex items-center justify-center mb-6 bg-zinc-50 dark:bg-zinc-900/50">
+                <Search size={40} className="text-zinc-400 dark:text-zinc-500" />
               </div>
-              <p className="text-zinc-500 font-medium">Waiting for a github username...</p>
+              <p className="text-zinc-500 font-medium">Search for a username to see their streak.</p>
             </div>
           )}
         </div>
