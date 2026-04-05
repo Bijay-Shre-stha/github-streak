@@ -70,7 +70,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black font-sans text-zinc-900 dark:text-zinc-50 selection:bg-green-500/30">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-black font-sans text-zinc-900 dark:text-zinc-50 selection:bg-green-500/30">
       {/* Background gradients */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-green-500/5 blur-[120px]" />
@@ -212,6 +212,19 @@ export default function Home() {
           )}
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="relative w-full py-6 flex items-center justify-center border-t border-zinc-200 dark:border-zinc-800/50 mt-auto bg-white/50 dark:bg-black/50 backdrop-blur-sm z-10">
+        <a
+          href="https://github.com/Bijay-Shre-stha/github-streak"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all font-medium text-sm group"
+        >
+          <FolderGit2 size={18} className="group-hover:scale-110 transition-transform" />
+          <span>Contribute to open source</span>
+        </a>
+      </footer>
     </div>
   );
 }

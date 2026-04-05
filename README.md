@@ -2,6 +2,10 @@
 
 A modern, full-stack Next.js application that calculates and displays your GitHub contribution streak stats. You can use this app to generate beautiful, highly accurate contribution streak badges and embed them directly into your GitHub README.
 
+## Motivation
+
+Existing GitHub streak tracking tools often fall short by only measuring public contributions, completely ignoring the hard work developers put into private repositories. This can be highly frustrating when your "streak" drops to zero despite you coding every single day. I built this GitHub Streak Counter to overcome that limitation—it accurately measures **all** your activity, including your private commit history, ensuring your true dedication and daily coding efforts are properly recognized.
+
 ## Features
 
 - **Accurate Streak Calculation**: Utilizes the GitHub GraphQL API to fetch user contribution data and accurately determine the current and longest streaks.
