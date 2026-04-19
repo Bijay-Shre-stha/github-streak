@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Loader2, Zap, FolderGit2, Palette } from "lucide-react";
 import { StreakCard } from "./components/StreakCard";
-import type { StreakStats } from "@/lib/github";
+import { ExtraStatsCard } from "./components/ExtraStatsCard";
+import type { ExtendedStreakStats } from "@/lib/github";
 import { themes } from "@/lib/themes";
 
 const GITHUB_USERNAME_REGEX = /^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$/;
@@ -11,7 +12,7 @@ const GITHUB_USERNAME_REGEX = /^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$/;
 export default function Home() {
   const [username, setUsername] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [stats, setStats] = useState<StreakStats | null>(null);
+  const [stats, setStats] = useState<ExtendedStreakStats | null>(null);
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState("default");
@@ -63,7 +64,9 @@ export default function Home() {
     setStats(null);
 
     try {
-      const res = await fetch(`/api/streak?username=${encodeURIComponent(normalizedUsername)}`);
+      const res = await fetch(
+        `/api/streak?username=${encodeURIComponent(normalizedUsername)}&variant=extended`,
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -179,7 +182,7 @@ export default function Home() {
                     onClick={() => { setUsername(""); setStats(null); setError(""); }}
                     className="mr-2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                   </button>
                 )}
                 <button
@@ -221,7 +224,7 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            
+
             {/* Theme Selector */}
             <div className="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-2">
               <div className="flex items-center gap-1.5 mr-1 bg-zinc-100 dark:bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800/50 text-zinc-500 shadow-sm">
@@ -234,8 +237,8 @@ export default function Home() {
                   type="button"
                   onClick={() => setTheme(t)}
                   className={`text-xs sm:text-sm font-semibold px-3.5 py-1.5 rounded-full transition-all duration-200 ${theme === t
-                      ? "bg-zinc-900 text-white dark:bg-white dark:text-black shadow-md scale-105 ring-2 ring-zinc-900/10 dark:ring-white/10"
-                      : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 hover:scale-105"
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-black shadow-md scale-105 ring-2 ring-zinc-900/10 dark:ring-white/10"
+                    : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 hover:scale-105"
                     }`}
                 >
                   {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -260,6 +263,7 @@ export default function Home() {
           ) : stats ? (
             <div className="w-full animate-in fade-in flex flex-col gap-6 zoom-in-95 duration-500">
               <StreakCard stats={stats} themeName={theme} />
+              <ExtraStatsCard stats={stats} themeName={theme} />
               <div className="flex justify-center">
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 shadow-sm border border-zinc-200 dark:border-zinc-800">
                   <span className="font-semibold text-zinc-900 dark:text-zinc-200">Tip:</span> You can embed this in your GitHub README!
@@ -267,7 +271,7 @@ export default function Home() {
               </div>
             </div>
           ) : (
-             <div className="flex flex-col items-center justify-center opacity-50 dark:opacity-40 user-select-none transition-opacity duration-300 hover:opacity-70 dark:hover:opacity-60">
+            <div className="flex flex-col items-center justify-center opacity-50 dark:opacity-40 user-select-none transition-opacity duration-300 hover:opacity-70 dark:hover:opacity-60">
               <div className="w-32 h-32 border-4 border-dashed border-zinc-300 dark:border-zinc-700 rounded-full flex items-center justify-center mb-6 bg-zinc-50 dark:bg-zinc-900/50">
                 <Search size={40} className="text-zinc-400 dark:text-zinc-500" />
               </div>

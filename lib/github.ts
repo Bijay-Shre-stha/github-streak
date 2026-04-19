@@ -3,6 +3,8 @@
 const GITHUB_GRAPHQL_API = "https://api.github.com/graphql";
 
 type DateCount = { date: string; contributionCount: number };
+type ContributionDay = { date: string; contributionCount: number };
+type ContributionWeek = { contributionDays: ContributionDay[] };
 
 export interface StreakStats {
   username: string;
@@ -17,8 +19,19 @@ export interface StreakStats {
   longestStreakEnd?: string;
 }
 
+export interface ExtendedStreakStats extends StreakStats {
+  activeDays: number;
+  averagePerDay: number;
+  bestDay?: {
+    date: string;
+    contributionCount: number;
+  };
+}
+
 // Fetch all contribution years for a user
-async function fetchUserContributionYears(username: string): Promise<number[] | null> {
+async function fetchUserContributionYears(
+  username: string,
+): Promise<number[] | null> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
     throw new Error("GITHUB_TOKEN is not set in environment variables");
@@ -58,7 +71,11 @@ async function fetchUserContributionYears(username: string): Promise<number[] | 
 }
 
 // Fetch contribution data for a specific year range
-async function fetchContributionsForYear(username: string, fromDate: string, toDate: string): Promise<DateCount[]> {
+async function fetchContributionsForYear(
+  username: string,
+  fromDate: string,
+  toDate: string,
+): Promise<DateCount[]> {
   const token = process.env.GITHUB_TOKEN;
   const query = `
     query($login: String!, $from: DateTime!, $to: DateTime!) {
@@ -92,11 +109,12 @@ async function fetchContributionsForYear(username: string, fromDate: string, toD
   if (!res.ok) return [];
 
   const data = await res.json();
-  const weeks = data.data?.user?.contributionsCollection?.contributionCalendar?.weeks || [];
-  
-  let days: DateCount[] = [];
-  weeks.forEach((week: any) => {
-    week.contributionDays.forEach((day: any) => {
+  const weeks: ContributionWeek[] =
+    data.data?.user?.contributionsCollection?.contributionCalendar?.weeks || [];
+
+  const days: DateCount[] = [];
+  weeks.forEach((week) => {
+    week.contributionDays.forEach((day) => {
       days.push({
         date: day.date,
         contributionCount: day.contributionCount,
@@ -107,7 +125,29 @@ async function fetchContributionsForYear(username: string, fromDate: string, toD
   return days;
 }
 
-export async function fetchGitHubStreak(username: string): Promise<StreakStats | null> {
+export async function fetchGitHubStreak(
+  username: string,
+): Promise<StreakStats | null> {
+  const stats = await fetchGitHubStreakExtended(username);
+  if (!stats) return null;
+
+  return {
+    username: stats.username,
+    totalContributions: stats.totalContributions,
+    currentStreak: stats.currentStreak,
+    longestStreak: stats.longestStreak,
+    joinedYear: stats.joinedYear,
+    totalContributionsStart: stats.totalContributionsStart,
+    currentStreakStart: stats.currentStreakStart,
+    currentStreakEnd: stats.currentStreakEnd,
+    longestStreakStart: stats.longestStreakStart,
+    longestStreakEnd: stats.longestStreakEnd,
+  };
+}
+
+export async function fetchGitHubStreakExtended(
+  username: string,
+): Promise<ExtendedStreakStats | null> {
   try {
     const years = await fetchUserContributionYears(username);
     if (!years || years.length === 0) return null;
@@ -120,15 +160,19 @@ export async function fetchGitHubStreak(username: string): Promise<StreakStats |
     });
 
     const yearsData = await Promise.all(yearPromises);
-    
+
     // Flatten and sort chronologically
-    const allDays = yearsData.flat().sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const allDays = yearsData
+      .flat()
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     let totalContributions = 0;
     let currentStreak = 0;
     let longestStreak = 0;
     let longestStreakStart = "";
     let longestStreakEnd = "";
+    let activeDays = 0;
+    let bestDay: DateCount | undefined;
 
     let tempStreak = 0;
     let tempStreakStart = "";
@@ -138,17 +182,23 @@ export async function fetchGitHubStreak(username: string): Promise<StreakStats |
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
 
-    let streakAlive = true;
-
-    // We process days backwards for the current streak, 
+    // We process days backwards for the current streak,
     // but calculating longest streak is easier going forwards.
     // Let's do a single pass going through all ascending days:
     allDays.forEach((day) => {
       totalContributions += day.contributionCount;
 
       if (day.contributionCount > 0) {
+        activeDays++;
+      }
+
+      if (!bestDay || day.contributionCount > bestDay.contributionCount) {
+        bestDay = day;
+      }
+
+      if (day.contributionCount > 0) {
         if (tempStreak === 0) {
-           tempStreakStart = day.date;
+          tempStreakStart = day.date;
         }
         tempStreak++;
         if (tempStreak > longestStreak) {
@@ -165,11 +215,11 @@ export async function fetchGitHubStreak(username: string): Promise<StreakStats |
     let curStreak = 0;
     let curStreakStart = "";
     let curStreakEnd = "";
-    
+
     for (let i = allDays.length - 1; i >= 0; i--) {
       const day = allDays[i];
       if (day.date > todayStr) continue; // Future dates shouldn't happen, but ignore if they do
-      
+
       if (day.date === todayStr && day.contributionCount === 0) {
         // Today is 0. Streak could still be alive from yesterday.
         continue;
@@ -183,24 +233,36 @@ export async function fetchGitHubStreak(username: string): Promise<StreakStats |
         curStreakStart = day.date;
       } else {
         // If yesterday was 0 and today was 0 (checked above), streak is broken.
-        // Wait, if we are here, it means we hit a 0. 
+        // Wait, if we are here, it means we hit a 0.
         if (day.date === yesterdayStr && curStreak === 0) {
-           break;
+          break;
         }
         if (day.date < yesterdayStr) {
-           break;
+          break;
         }
       }
     }
-    
+
     currentStreak = curStreak;
-    const firstActiveDay = allDays.find(d => d.contributionCount > 0)?.date;
+    const firstActiveDay = allDays.find((d) => d.contributionCount > 0)?.date;
+    const averagePerDay =
+      allDays.length > 0
+        ? Number((totalContributions / allDays.length).toFixed(2))
+        : 0;
 
     return {
       username,
       totalContributions,
       currentStreak,
       longestStreak,
+      activeDays,
+      averagePerDay,
+      bestDay: bestDay
+        ? {
+            date: bestDay.date,
+            contributionCount: bestDay.contributionCount,
+          }
+        : undefined,
       joinedYear: years[years.length - 1],
       totalContributionsStart: firstActiveDay,
       currentStreakStart: curStreak > 0 ? curStreakStart : undefined,

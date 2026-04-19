@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { StreakStats } from "@/lib/github";
-import { themes, Theme } from "@/lib/themes";
-import { Flame, Trophy, Activity, Calendar, Copy, Check } from "lucide-react";
+import { ExtendedStreakStats } from "@/lib/github";
+import { themes } from "@/lib/themes";
+import { Flame, Activity, Copy, Check } from "lucide-react";
 
 const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
-export function StreakCard({ stats, themeName = "default" }: { stats: StreakStats, themeName?: string }) {
+export function StreakCard({ stats, themeName = "default" }: { stats: ExtendedStreakStats, themeName?: string }) {
   const [copied, setCopied] = useState(false);
   const theme = themes[themeName] || themes.default;
 
@@ -33,11 +33,11 @@ export function StreakCard({ stats, themeName = "default" }: { stats: StreakStat
   } as React.CSSProperties;
 
   return (
-    <div 
-      className="w-full max-w-2xl mx-auto rounded-3xl p-[1px] shadow-xl transition-all duration-500 hover:shadow-2xl"
+    <div
+      className="w-full max-w-2xl mx-auto rounded-3xl p-px shadow-xl transition-all duration-500 hover:shadow-2xl"
       style={{ ...styles }}
     >
-      <div 
+      <div
         className="rounded-[23px] overflow-hidden h-full w-full relative"
         style={{ backgroundColor: "var(--theme-bg)" }}
       >
@@ -52,10 +52,10 @@ export function StreakCard({ stats, themeName = "default" }: { stats: StreakStat
 
           {/* Stats Flex Layout */}
           <div className="flex flex-col sm:flex-row items-center justify-between w-full relative z-10 pt-4">
-            
+
             {/* Total Contributions */}
             <div className="flex-1 w-full flex flex-col items-center justify-center p-2">
-              <span 
+              <span
                 className="text-4xl font-bold tracking-tight mb-2 transition-transform duration-300 transform hover:scale-110"
                 style={{ color: "var(--theme-total)" }}
               >
@@ -65,9 +65,9 @@ export function StreakCard({ stats, themeName = "default" }: { stats: StreakStat
                 Total Contributions
               </span>
               {(stats.totalContributionsStart || stats.joinedYear) && (
-                 <span className="text-[11px] font-medium tracking-wide" style={{ color: "var(--theme-text)" }}>
-                   {stats.totalContributionsStart ? formatDate(stats.totalContributionsStart) : stats.joinedYear} - Present
-                 </span>
+                <span className="text-[11px] font-medium tracking-wide" style={{ color: "var(--theme-text)" }}>
+                  {stats.totalContributionsStart ? formatDate(stats.totalContributionsStart) : stats.joinedYear} - Present
+                </span>
               )}
             </div>
 
@@ -77,32 +77,32 @@ export function StreakCard({ stats, themeName = "default" }: { stats: StreakStat
             {/* Current Streak */}
             <div className="flex-1 w-full flex flex-col items-center justify-center p-2 relative">
               <div className="relative flex items-center justify-center w-[110px] h-[110px] mb-2 transform hover:scale-105 transition-transform duration-300">
-                 <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-                    <path 
-                      d="M 27.5,14 A 43,43 0 1,0 72.5,14" 
-                      fill="none" 
-                      stroke="var(--theme-current)" 
-                      strokeWidth="5" 
-                      strokeLinecap="round" 
-                    />
-                 </svg>
-                 <div className="absolute top-0 -mt-2.5 bg-[var(--theme-bg)] px-2 rounded-full flex items-center justify-center">
-                    <Flame color="var(--theme-current)" size={26} className="drop-shadow-sm" />
-                 </div>
-                 <span 
-                   className="text-3xl font-bold tracking-tight mt-1"
-                   style={{ color: "var(--theme-longest)" }} // Image uses this specific yellow/accent scheme
-                 >
-                   {stats.currentStreak}
-                 </span>
+                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
+                  <path
+                    d="M 27.5,14 A 43,43 0 1,0 72.5,14"
+                    fill="none"
+                    stroke="var(--theme-current)"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute top-0 -mt-2.5 bg-[var(--theme-bg)] px-2 rounded-full flex items-center justify-center">
+                  <Flame color="var(--theme-current)" size={26} className="drop-shadow-sm" />
+                </div>
+                <span
+                  className="text-3xl font-bold tracking-tight mt-1"
+                  style={{ color: "var(--theme-longest)" }} // Image uses this specific yellow/accent scheme
+                >
+                  {stats.currentStreak}
+                </span>
               </div>
               <span className="text-[13px] font-bold mb-2 tracking-wide text-center" style={{ color: "var(--theme-longest)" }}>
                 Current Streak
               </span>
               {stats.currentStreakStart && stats.currentStreakEnd && (
-                 <span className="text-[11px] font-medium tracking-wide text-center" style={{ color: "var(--theme-text)" }}>
-                   {formatDate(stats.currentStreakStart)} - {formatDate(stats.currentStreakEnd)}
-                 </span>
+                <span className="text-[11px] font-medium tracking-wide text-center" style={{ color: "var(--theme-text)" }}>
+                  {formatDate(stats.currentStreakStart)} - {formatDate(stats.currentStreakEnd)}
+                </span>
               )}
             </div>
 
@@ -112,7 +112,7 @@ export function StreakCard({ stats, themeName = "default" }: { stats: StreakStat
             {/* Longest Streak */}
             <div className="flex-1 w-full flex flex-col items-center justify-center p-2">
               <div className="flex items-center gap-2 mb-2 transition-transform duration-300 transform hover:scale-110">
-                <span 
+                <span
                   className="text-4xl font-bold tracking-tight"
                   style={{ color: "var(--theme-title)" }}
                 >
@@ -123,22 +123,22 @@ export function StreakCard({ stats, themeName = "default" }: { stats: StreakStat
                 Longest Streak
               </span>
               {stats.longestStreakStart && stats.longestStreakEnd && (
-                 <span className="text-[11px] font-medium tracking-wide" style={{ color: "var(--theme-text)" }}>
-                   {formatDate(stats.longestStreakStart)} - {formatDate(stats.longestStreakEnd)}
-                 </span>
+                <span className="text-[11px] font-medium tracking-wide" style={{ color: "var(--theme-text)" }}>
+                  {formatDate(stats.longestStreakStart)} - {formatDate(stats.longestStreakEnd)}
+                </span>
               )}
             </div>
 
           </div>
 
           {/* Footer markdown link utility */}
-          <div 
+          <div
             className="flex flex-col items-start w-full gap-2 mt-4 pt-6 border-t"
             style={{ borderColor: "var(--theme-border)" }}
           >
             <div className="flex w-full items-center justify-between px-1">
               <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--theme-text)" }}>Embed in your README</span>
-              <button 
+              <button
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md transition-colors hover:bg-zinc-500/10 active:scale-95"
                 style={{ color: "var(--theme-title)" }}
@@ -148,12 +148,12 @@ export function StreakCard({ stats, themeName = "default" }: { stats: StreakStat
               </button>
             </div>
             <div className="w-full relative group">
-              <code 
+              <code
                 className="block w-full overflow-x-auto whitespace-pre border rounded-lg px-4 py-3 text-xs font-mono transition-colors scrollbar-thin scrollbar-thumb-zinc-400 dark:scrollbar-thumb-zinc-600 outline-none focus:ring-2 focus:ring-zinc-400"
-                style={{ 
-                  backgroundColor: 'color-mix(in srgb, var(--theme-text) 5%, transparent)', 
-                  borderColor: "var(--theme-border)", 
-                  color: "var(--theme-text)" 
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--theme-text) 5%, transparent)',
+                  borderColor: "var(--theme-border)",
+                  color: "var(--theme-text)"
                 }}
               >
                 {embedCode}
