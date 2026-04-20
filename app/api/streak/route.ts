@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchGitHubStreak } from "@/lib/github";
+import { fetchGitHubStreak, fetchGitHubStreakExtended } from "@/lib/github";
 
 export const revalidate = 3600; // Cache for 1 hour
 const GITHUB_USERNAME_REGEX = /^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$/;
@@ -7,6 +7,8 @@ const GITHUB_USERNAME_REGEX = /^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$/;
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const username = searchParams.get("username")?.trim();
+  const variant = searchParams.get("variant")?.trim().toLowerCase();
+  const isExtended = variant === "extended" || variant === "stats";
 
   if (!username) {
     return NextResponse.json(
@@ -23,7 +25,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await fetchGitHubStreak(username);
+    const data = isExtended
+      ? await fetchGitHubStreakExtended(username)
+      : await fetchGitHubStreak(username);
 
     if (!data) {
       return NextResponse.json(
