@@ -13,7 +13,8 @@ export function StreakCard({ stats, themeName = "default" }: { stats: ExtendedSt
   const [copied, setCopied] = useState(false);
   const theme = themes[themeName] || themes.default;
 
-  const embedCode = `![GitHub Streak](https://${typeof window !== 'undefined' ? window.location.host : 'localhost:3000'}/api/streak-image?username=${stats.username}&theme=${themeName})`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const embedCode = `![GitHub Streak](${origin}/api/streak-image?username=${encodeURIComponent(stats.username)}&theme=${encodeURIComponent(themeName)})`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(embedCode);
