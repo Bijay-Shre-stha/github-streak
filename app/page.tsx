@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Loader2, Zap, FolderGit2, Palette } from "lucide-react";
 import { StreakCard } from "./components/StreakCard";
 import { ExtraStatsCard } from "./components/ExtraStatsCard";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import type { ExtendedStreakStats } from "@/lib/github";
 import { themes } from "@/lib/themes";
 
@@ -261,15 +262,17 @@ export default function Home() {
               <p className="text-zinc-500 font-medium animate-pulse">Calculating streak...</p>
             </div>
           ) : stats ? (
-            <div className="w-full animate-in fade-in flex flex-col gap-6 zoom-in-95 duration-500">
-              <StreakCard stats={stats} themeName={theme} />
-              <ExtraStatsCard stats={stats} themeName={theme} />
-              <div className="flex justify-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 shadow-sm border border-zinc-200 dark:border-zinc-800">
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-200">Tip:</span> You can embed this in your GitHub README!
+            <ErrorBoundary>
+              <div className="w-full animate-in fade-in flex flex-col gap-6 zoom-in-95 duration-500">
+                <StreakCard stats={stats} themeName={theme} />
+                <ExtraStatsCard stats={stats} themeName={theme} />
+                <div className="flex justify-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 shadow-sm border border-zinc-200 dark:border-zinc-800">
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-200">Tip:</span> You can embed this in your GitHub README!
+                  </div>
                 </div>
               </div>
-            </div>
+            </ErrorBoundary>
           ) : (
             <div className="flex flex-col items-center justify-center opacity-50 dark:opacity-40 user-select-none transition-opacity duration-300 hover:opacity-70 dark:hover:opacity-60">
               <div className="w-32 h-32 border-4 border-dashed border-zinc-300 dark:border-zinc-700 rounded-full flex items-center justify-center mb-6 bg-zinc-50 dark:bg-zinc-900/50">
