@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { fetchGitHubStreak } from "@/lib/github";
 import { themes } from "@/lib/themes";
+import { validateGitHubUsername, validateTheme } from "@/lib/validation";
+import { checkRateLimit, getClientIP } from "@/lib/rateLimit";
 
 export const revalidate = 3600;
-const GITHUB_USERNAME_REGEX = /^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$/;
 
 const LUCIDE_FLAME_PATH =
   "M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4";
@@ -45,6 +46,21 @@ function flameIcon(
 }
 
 export async function GET(request: Request) {
+  // Rate limiting
+  const clientIP = getClientIP(request);
+  const rateLimitCheck = checkRateLimit(clientIP);
+
+  if (rateLimitCheck.isLimited) {
+    return new NextResponse("Rate limit exceeded", {
+      status: 429,
+      headers: {
+        "Retry-After": Math.ceil(
+          (rateLimitCheck.resetTime - Date.now()) / 1000,
+        ).toString(),
+      },
+    });
+  }
+
   const { searchParams } = new URL(request.url);
   const username = searchParams.get("username")?.trim();
   const themeName = searchParams.get("theme") || "default";
@@ -53,8 +69,14 @@ export async function GET(request: Request) {
     return new NextResponse("Username is required", { status: 400 });
   }
 
-  if (!GITHUB_USERNAME_REGEX.test(username)) {
-    return new NextResponse("Invalid GitHub username", { status: 400 });
+  const usernameValidation = validateGitHubUsername(username);
+  if (!usernameValidation.valid) {
+    return new NextResponse(usernameValidation.error, { status: 400 });
+  }
+
+  const themeValidation = validateTheme(themeName);
+  if (!themeValidation.valid) {
+    return new NextResponse(themeValidation.error, { status: 400 });
   }
 
   try {
@@ -65,7 +87,7 @@ export async function GET(request: Request) {
     }
 
     // ── Theme ────────────────────────────────────────────────────────────────
-    const theme = themes[themeName] || themes.default;
+    const theme = themes[themeName];
     const bg = theme.bg;
     const border = theme.border;
     const textMain = theme.title;
@@ -149,6 +171,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("streak-image error:", error);
-    return new NextResponse("Server Error", { status: 500 });
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Failed to generate streak image";
+    return new NextResponse(errorMessage, { status: 500 });
   }
 }

@@ -1,25 +1,50 @@
 import { NextResponse } from "next/server";
 import { fetchGitHubStreak, fetchGitHubStreakExtended } from "@/lib/github";
+import { validateGitHubUsername, validateTheme } from "@/lib/validation";
+import { checkRateLimit, getClientIP } from "@/lib/rateLimit";
 
 export const revalidate = 3600; // Cache for 1 hour
-const GITHUB_USERNAME_REGEX = /^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$/;
 
 export async function GET(request: Request) {
+  // Rate limiting
+  const clientIP = getClientIP(request);
+  const rateLimitCheck = checkRateLimit(clientIP);
+
+  if (rateLimitCheck.isLimited) {
+    return NextResponse.json(
+      {
+        error: "Rate limit exceeded",
+        code: "RATE_LIMITED",
+        retryAfter: Math.ceil((rateLimitCheck.resetTime - Date.now()) / 1000),
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": Math.ceil(
+            (rateLimitCheck.resetTime - Date.now()) / 1000,
+          ).toString(),
+        },
+      },
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const username = searchParams.get("username")?.trim();
   const variant = searchParams.get("variant")?.trim().toLowerCase();
   const isExtended = variant === "extended" || variant === "stats";
 
+  // Validate username
   if (!username) {
     return NextResponse.json(
-      { error: "Username is required" },
+      { error: "Username is required", code: "MISSING_USERNAME" },
       { status: 400 },
     );
   }
 
-  if (!GITHUB_USERNAME_REGEX.test(username)) {
+  const usernameValidation = validateGitHubUsername(username);
+  if (!usernameValidation.valid) {
     return NextResponse.json(
-      { error: "Invalid GitHub username" },
+      { error: usernameValidation.error, code: "INVALID_USERNAME" },
       { status: 400 },
     );
   }
@@ -31,7 +56,10 @@ export async function GET(request: Request) {
 
     if (!data) {
       return NextResponse.json(
-        { error: "User not found or has no contribution data" },
+        {
+          error: "User not found or has no contribution data",
+          code: "NOT_FOUND",
+        },
         { status: 404 },
       );
     }
@@ -39,8 +67,10 @@ export async function GET(request: Request) {
     return NextResponse.json(data);
   } catch (error) {
     console.error("API error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Failed to fetch streak data";
     return NextResponse.json(
-      { error: "Failed to fetch streak data" },
+      { error: errorMessage, code: "INTERNAL_ERROR" },
       { status: 500 },
     );
   }
