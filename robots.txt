@@ -1,0 +1,28 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /private/
+
+# SEO: Allow crawling of API endpoints for search value
+Allow: /api/streak
+Allow: /api/streak-image
+Allow: /api/streak-stats-image
+Allow: /api/streak-compare
+
+# Sitemap location
+Sitemap: https://github-streak-bijay-shre-stha.vercel.app/sitemap.xml
+
+# Performance and caching guidelines
+Crawl-delay: 1
+
+# Important: Block sensitive paths
+Disallow: /checkout/
+Disallow: /account/
+Disallow: /dashboard/
+
+# Allow programmatic access
+Allow: /api/
+
+# SEO: Allow access to generated images
+Allow: /_next/static/chunks/
+Allow: /_next/static/css/

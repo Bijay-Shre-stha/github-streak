@@ -308,11 +308,12 @@ export default function Home() {
           {/* Hero Section */}
           <div className="w-full">
             <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight mb-6 bg-clip-text text-transparent bg-linear-to-r from-zinc-900 via-zinc-800 to-zinc-600 dark:from-white dark:via-zinc-200 dark:to-zinc-500 pb-2">
-              GitHub Streak Stats
+              GitHub Streak Stats & Contribution Tracker
             </h1>
             <p className="max-w-2xl mx-auto lg:mx-0 text-lg sm:text-xl text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed">
-              Generate beautiful, highly accurate contribution streaks, compare two
-              developers, and embed cards directly into your GitHub README.
+              Generate beautiful, highly accurate <span className="text-green-600 dark:text-green-400 font-semibold">contribution streaks</span>, compare two
+              developers, and embed cards directly into your <span className="text-blue-600 dark:text-blue-400 font-semibold">GitHub README.</span> Track your
+              coding streak and boost your <span className="text-purple-600 dark:text-purple-400 font-semibold">GitHub profile visibility</span> with stunning stats.
             </p>
           </div>
 
@@ -441,7 +442,7 @@ export default function Home() {
 
             {/* Quick Suggestions */}
             <div className="mt-4 flex items-center justify-center lg:justify-start gap-2 text-sm text-zinc-500 font-medium">
-              <span>Try:</span>
+              <span>Popular examples:</span>
               {mode === "single"
                 ? ["torvalds", "getify", "bijay-shre-stha"].map((user) => (
                   <button
@@ -472,6 +473,26 @@ export default function Home() {
                     {a} vs {b}
                   </button>
                 ))}
+            </div>
+
+            {/* SEO Benefits */}
+            <div className="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-3 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                <span>100% accurate</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                <span>GitHub README optimized</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+                <span>Custom themes</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                <span>Developer comparison</span>
+              </div>
             </div>
 
             {/* Theme Selector */}
