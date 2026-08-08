@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.0"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- Homepage -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- GitHub Streak Generator - Core utility page -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/streak</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://github-streak-bijay-shre-stha.vercel.app/streak"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://github-streak-bijay-shre-stha.vercel.app/streak"/>
+  </url>
+
+  <!-- Developer Comparison Tool - High value for engagement -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/compare</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://github-streak-bijay-shre-stha.vercel.app/compare"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://github-streak-bijay-shre-stha.vercel.app/compare"/>
+  </url>
+
+  <!-- Embed in README Feature - Target developer audience -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/embed</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://github-streak-bijay-shre-stha.vercel.app/embed"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://github-streak-bijay-shre-stha.vercel.app/embed"/>
+  </url>
+
+  <!-- Documentation / Help - Support user questions -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/docs</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- Pricing / Pro Features - Convert users -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/pricing</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- About / Company - Build authority -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- Blog - Content marketing and keyword targeting -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/blog</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- Popular Blog Posts (dynamic - replace with actual URLs) -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/blog/how-to-track-github-streak</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/blog/github-readme-badges-guide</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/blog/compare-developers-stats</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- API Documentation - Technical audience -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/api-docs</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- Contact / Support - Conversion path -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/contact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- Terms of Service -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/terms</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+  <!-- Privacy Policy -->
+  <url>
+    <loc>https://github-streak-bijay-shre-stha.vercel.app/privacy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <lastmod>2026-08-07T00:00:00+00:00</lastmod>
+  </url>
+
+</urlset>
