@@ -8,11 +8,15 @@ import {
   FolderGit2,
   Palette,
   GitCompareArrows,
+  Trophy,
+  Code,
 } from "lucide-react";
+import Link from "next/link";
 import { StreakCard } from "./components/StreakCard";
 import { ExtraStatsCard } from "./components/ExtraStatsCard";
 import { CompareStatsCard } from "./components/CompareStatsCard";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ShareButtons } from "./components/ShareButtons";
 import type { ExtendedStreakStats } from "@/lib/github";
 import type { ComparedStreakStats } from "@/lib/streakCompare";
 import { themes } from "@/lib/themes";
@@ -31,46 +35,36 @@ export default function Home() {
     null,
   );
   const [error, setError] = useState("");
-  const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState("default");
+  const [isInitialized, setIsInitialized] = useState(false);
+
   const activeRequestId = useRef(0);
   const lastFetchedUsername = useRef("");
   const lastFetchedCompareKey = useRef("");
 
   useEffect(() => {
-    setMounted(true);
-
     const searchParams = new URLSearchParams(window.location.search);
-    const initialMode =
-      searchParams.get("mode") === "compare" ? "compare" : "single";
+    const initialMode = searchParams.get("mode") === "compare" ? "compare" : "single";
     const initialUsername = searchParams.get("username")?.trim() ?? "";
     const initialUserA = searchParams.get("userA")?.trim() ?? "";
     const initialUserB = searchParams.get("userB")?.trim() ?? "";
-    const initialTheme = searchParams.get("theme") ?? "";
-    const savedTheme = window.localStorage.getItem("streak-theme") ?? "";
+    
+    let initialTheme = searchParams.get("theme") ?? "";
+    if (!initialTheme || !(initialTheme in themes)) {
+      const savedTheme = window.localStorage.getItem("streak-theme") ?? "";
+      if (savedTheme && savedTheme in themes) {
+        initialTheme = savedTheme;
+      } else {
+        initialTheme = "default";
+      }
+    }
 
     setMode(initialMode);
-
-    if (initialUsername) {
-      setUsername(initialUsername);
-    }
-
-    if (initialUserA) {
-      setUserA(initialUserA);
-    }
-
-    if (initialUserB) {
-      setUserB(initialUserB);
-    }
-
-    if (initialTheme && themes[initialTheme]) {
-      setTheme(initialTheme);
-      return;
-    }
-
-    if (savedTheme && themes[savedTheme]) {
-      setTheme(savedTheme);
-    }
+    setUsername(initialUsername);
+    setUserA(initialUserA);
+    setUserB(initialUserB);
+    setTheme(initialTheme);
+    setIsInitialized(true);
   }, []);
 
   const fetchStreak = useCallback(async (targetUsername: string) => {
@@ -189,7 +183,7 @@ export default function Home() {
   );
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!isInitialized) return;
 
     const searchParams = new URLSearchParams(window.location.search);
     const trimmedUsername = username.trim();
@@ -228,9 +222,10 @@ export default function Home() {
       : window.location.pathname;
     window.history.replaceState({}, "", nextUrl);
     window.localStorage.setItem("streak-theme", theme);
-  }, [mode, username, userA, userB, theme, mounted]);
+  }, [mode, username, userA, userB, theme, isInitialized]);
 
   useEffect(() => {
+    if (!isInitialized) return;
     if (mode !== "single") return;
 
     const handler = setTimeout(() => {
@@ -245,9 +240,10 @@ export default function Home() {
     }, 1000);
 
     return () => clearTimeout(handler);
-  }, [mode, username, fetchStreak]);
+  }, [mode, username, fetchStreak, isInitialized]);
 
   useEffect(() => {
+    if (!isInitialized) return;
     if (mode !== "compare") return;
 
     const handler = setTimeout(() => {
@@ -263,7 +259,7 @@ export default function Home() {
     }, 1000);
 
     return () => clearTimeout(handler);
-  }, [mode, userA, userB, fetchCompare]);
+  }, [mode, userA, userB, fetchCompare, isInitialized]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -414,7 +410,6 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={
-                    !mounted ||
                     isLoading ||
                     (mode === "single"
                       ? username.trim() === ""
@@ -537,10 +532,17 @@ export default function Home() {
               <div className="w-full animate-in fade-in flex flex-col gap-6 zoom-in-95 duration-500">
                 <StreakCard stats={stats} themeName={theme} />
                 <ExtraStatsCard stats={stats} themeName={theme} />
-                <div className="flex justify-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 shadow-sm border border-zinc-200 dark:border-zinc-800">
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-200">Tip:</span> You can embed this in your GitHub README!
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex justify-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 shadow-sm border border-zinc-200 dark:border-zinc-800">
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-200">Tip:</span> You can embed this in your GitHub README!
+                    </div>
                   </div>
+                  <ShareButtons
+                    themeName={theme}
+                    username={username}
+                    text={`My GitHub streak: ${stats.currentStreak} days`}
+                  />
                 </div>
               </div>
             </ErrorBoundary>
@@ -548,13 +550,19 @@ export default function Home() {
             <ErrorBoundary>
               <div className="w-full animate-in fade-in flex flex-col gap-6 zoom-in-95 duration-500">
                 <CompareStatsCard stats={compareStats} themeName={theme} />
-                <div className="flex justify-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 shadow-sm border border-zinc-200 dark:border-zinc-800">
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-200">
-                      Insight:
-                    </span>
-                    Compare who leads each metric before adding a README badge.
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex justify-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 shadow-sm border border-zinc-200 dark:border-zinc-800">
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-200">
+                        Insight:
+                      </span>
+                      Compare who leads each metric before adding a README badge.
+                    </div>
                   </div>
+                  <ShareButtons
+                    themeName={theme}
+                    text={`Comparison: ${compareStats.userA.username} vs ${compareStats.userB.username}`}
+                  />
                 </div>
               </div>
             </ErrorBoundary>
@@ -575,15 +583,38 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="relative w-full py-6 flex items-center justify-center border-t border-zinc-200 dark:border-zinc-800/50 mt-auto bg-white/50 dark:bg-black/50 backdrop-blur-sm z-10">
-        <a
-          href="https://github.com/Bijay-Shre-stha/github-streak"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-6 py-2.5 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all font-medium text-sm group"
-        >
-          <FolderGit2 size={18} className="group-hover:scale-110 transition-transform" />
-          <span>Contribute to open source</span>
-        </a>
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 px-4">
+          <a
+            href="https://github.com/Bijay-Shre-stha/github-streak"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all font-medium text-sm group"
+          >
+            <FolderGit2 size={18} className="group-hover:scale-110 transition-transform" />
+            <span>Contribute to open source</span>
+          </a>
+          <Link
+            href="/themes"
+            className="flex items-center gap-2 px-3 py-2 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all font-medium text-sm"
+          >
+            <Palette size={16} />
+            <span>Themes</span>
+          </Link>
+          <Link
+            href="/leaderboard"
+            className="flex items-center gap-2 px-3 py-2 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all font-medium text-sm"
+          >
+            <Trophy size={16} />
+            <span>Leaderboard</span>
+          </Link>
+          <Link
+            href="/api-playground"
+            className="flex items-center gap-2 px-3 py-2 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all font-medium text-sm"
+          >
+            <Code size={16} />
+            <span>API</span>
+          </Link>
+        </div>
       </footer>
     </div>
   );
