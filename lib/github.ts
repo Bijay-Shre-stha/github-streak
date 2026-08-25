@@ -28,6 +28,24 @@ export interface ExtendedStreakStats extends StreakStats {
   };
 }
 
+export interface GitHubUserProfile {
+  login: string;
+  id: number;
+  avatarUrl: string;
+  name: string | null;
+  bio: string | null;
+  email: string | null;
+  followers: number;
+  following: number;
+  publicRepos: number;
+  createdAt: string;
+  twitterUsername: string | null;
+  blog: string | null;
+  company: string | null;
+  location: string | null;
+  htmlUrl: string;
+}
+
 // Fetch all contribution years for a user
 async function fetchUserContributionYears(
   username: string,
@@ -272,6 +290,90 @@ export async function fetchGitHubStreakExtended(
     };
   } catch (err) {
     console.error("Error fetching GitHub streak:", err);
+    return null;
+  }
+}
+
+// Fetch user profile data from GitHub
+export async function fetchGitHubUserProfile(
+  username: string,
+): Promise<GitHubUserProfile | null> {
+  try {
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) {
+      throw new Error("GITHUB_TOKEN is not set in environment variables");
+    }
+
+    const query = `
+      query($login: String!) {
+        user(login: $login) {
+          login
+          id
+          avatarUrl(size: 256)
+          name
+          bio
+          email
+          followers {
+            totalCount
+          }
+          following {
+            totalCount
+          }
+          repositories(isFork: false, ownerAffiliations: OWNER, first: 50) {
+            totalCount
+          }
+          createdAt
+          twitterUsername
+          blog
+          company
+          location
+          htmlUrl
+        }
+      }
+    `;
+
+    const res = await fetch(GITHUB_GRAPHQL_API, {
+      method: "POST",
+      headers: {
+        Authorization: `bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query, variables: { login: username } }),
+    });
+
+    if (!res.ok) {
+      console.error(`Failed to fetch user profile for ${username}`);
+      return null;
+    }
+
+    const data = await res.json();
+    if (data.errors) {
+      console.error("GraphQL errors fetching profile:", data.errors);
+      return null;
+    }
+
+    const user = data.data?.user;
+    if (!user) return null;
+
+    return {
+      login: user.login,
+      id: user.id,
+      avatarUrl: user.avatarUrl,
+      name: user.name,
+      bio: user.bio,
+      email: user.email,
+      followers: user.followers.totalCount,
+      following: user.following.totalCount,
+      publicRepos: user.repositories.totalCount,
+      createdAt: user.createdAt,
+      twitterUsername: user.twitterUsername,
+      blog: user.blog,
+      company: user.company,
+      location: user.location,
+      htmlUrl: user.htmlUrl,
+    };
+  } catch (err) {
+    console.error("Error fetching GitHub profile:", err);
     return null;
   }
 }
