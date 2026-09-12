@@ -59,6 +59,7 @@ export default function Home() {
       }
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMode(initialMode);
     setUsername(initialUsername);
     setUserA(initialUserA);

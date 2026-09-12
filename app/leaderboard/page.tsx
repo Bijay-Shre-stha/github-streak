@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import { useState } from "react";
@@ -19,10 +16,10 @@ interface LeaderboardEntry {
 // Mock leaderboard data - in production, this would come from a database
 const MOCK_LEADERBOARD: LeaderboardEntry[] = Array.from({ length: 20 }, (_, i) => ({
   username: `developer_${20 - i}`,
-  currentStreak: Math.floor(Math.random() * 100) + 10,
-  longestStreak: Math.floor(Math.random() * 200) + 50,
-  totalContributions: Math.floor(Math.random() * 5000) + 500,
-  activeDays: Math.floor(Math.random() * 365) + 100,
+  currentStreak: 100 - i * 2,
+  longestStreak: 200 - i * 4,
+  totalContributions: 5000 - i * 150,
+  activeDays: 365 - i * 10,
   rank: i + 1,
   change: i < 5 ? 0 : i < 10 ? 1 : -1,
 }));

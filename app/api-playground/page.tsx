@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Code, AlertCircle, Copy, Play, RotateCw } from "lucide-react";
 
@@ -77,9 +77,15 @@ export default function ApiPlaygroundPage() {
     }
   };
 
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
   const getImageLink = () => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-    return `${origin}/api/streak-image?username=${username}&theme=${theme}`;
+    const currentOrigin = origin || "http://localhost:3000";
+    return `${currentOrigin}/api/streak-image?username=${username}&theme=${theme}`;
   };
 
   const copyToClipboard = (text: string) => {
