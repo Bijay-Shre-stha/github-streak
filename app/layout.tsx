@@ -21,18 +21,16 @@ export const metadata: Metadata = {
     "open source contribution",
     "GitHub streak stats"
   ],
-  authors: [{ name: "Bijay Shrestha", url: "https://github.com/Bijay-Shre-stha" }],
+  authors: [
+    { name: "Bijay Shrestha", url: "https://www.bijayshrestha0817.com.np/" },
+    { name: "Bijay Shrestha", url: "https://github.com/Bijay-Shre-stha" },
+  ],
   creator: "Bijay Shrestha",
   publisher: "Bijay Shrestha",
   generator: "Next.js",
   applicationName: "GitHub Streak Stats",
   alternates: {
     canonical: "https://github-streak-bijay-shre-stha.vercel.app",
-    languages: {
-      "en": "https://github-streak-bijay-shre-stha.vercel.app/en",
-      "es": "https://github-streak-bijay-shre-stha.vercel.app/es",
-      "fr": "https://github-streak-bijay-shre-stha.vercel.app/fr",
-    },
   },
   openGraph: {
     type: "website",
@@ -119,7 +117,11 @@ export default function RootLayout({
             "creator": {
               "@type": "Person",
               "name": "Bijay Shrestha",
-              "url": "https://github.com/Bijay-Shre-stha"
+              "url": "https://www.bijayshrestha0817.com.np/",
+              "sameAs": [
+                "https://github.com/Bijay-Shre-stha",
+                "https://www.bijayshrestha0817.com.np/"
+              ]
             },
             "featureList": [
               "Generate GitHub streak badges",
