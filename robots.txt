@@ -3,11 +3,12 @@ Allow: /
 Disallow: /admin/
 Disallow: /private/
 
-# SEO: Allow crawling of API endpoints for search value
-Allow: /api/streak
+# SEO: index badge images (embeddable <img>), not JSON data endpoints
 Allow: /api/streak-image
 Allow: /api/streak-stats-image
-Allow: /api/streak-compare
+Disallow: /api/streak
+Disallow: /api/streak-compare
+Disallow: /api/profile
 
 # Sitemap location
 Sitemap: https://github-streak-bijay-shre-stha.vercel.app/sitemap.xml
@@ -20,9 +21,5 @@ Disallow: /checkout/
 Disallow: /account/
 Disallow: /dashboard/
 
-# Allow programmatic access
-Allow: /api/
-
-# SEO: Allow access to generated images
-Allow: /_next/static/chunks/
-Allow: /_next/static/css/
+# SEO: Allow access to generated SVG badge images
+Allow: /_next/static/

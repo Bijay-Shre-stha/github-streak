@@ -10,6 +10,7 @@ import {
   GitCompareArrows,
   Trophy,
   Code,
+  Globe,
 } from "lucide-react";
 import Link from "next/link";
 import { StreakCard } from "./components/StreakCard";
@@ -593,6 +594,15 @@ export default function Home() {
           >
             <FolderGit2 size={18} className="group-hover:scale-110 transition-transform" />
             <span>Contribute to open source</span>
+          </a>
+          <a
+            href="https://www.bijayshrestha0817.com.np/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all font-medium text-sm group"
+          >
+            <Globe size={18} className="group-hover:scale-110 transition-transform" />
+            <span>Created by Bijay Shrestha</span>
           </a>
           <Link
             href="/themes"
