@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { Code, AlertCircle, Copy, Play, RotateCw } from "lucide-react";
+import { Code, AlertCircle, Play, RotateCw } from "lucide-react";
+import { CopyButton } from "../components/CopyButton";
+import { readmeMarkdown, streakImageUrl } from "@/lib/share";
 
 interface ApiResponse<T = unknown> {
   data: T | null;
@@ -32,7 +34,7 @@ export default function ApiPlaygroundPage() {
     }));
 
     try {
-      const res = await fetch(`/api/streak?username=${username}&variant=extended`);
+      const res = await fetch(`/api/streak?username=${encodeURIComponent(username.trim())}&variant=extended`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -58,7 +60,7 @@ export default function ApiPlaygroundPage() {
     }));
 
     try {
-      const res = await fetch(`/api/streak-compare?userA=${userA}&userB=${userB}`);
+      const res = await fetch(`/api/streak-compare?userA=${encodeURIComponent(userA.trim())}&userB=${encodeURIComponent(userB.trim())}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -77,20 +79,7 @@ export default function ApiPlaygroundPage() {
     }
   };
 
-  const [origin, setOrigin] = useState("");
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
-
-  const getImageLink = () => {
-    const currentOrigin = origin || "http://localhost:3000";
-    return `${currentOrigin}/api/streak-image?username=${username}&theme=${theme}`;
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
+  const getImageLink = (): string => streakImageUrl(username.trim(), theme);
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-black font-sans text-zinc-900 dark:text-zinc-50">
@@ -122,10 +111,10 @@ export default function ApiPlaygroundPage() {
 
             <div className="grid gap-4">
               <div>
-                <label className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
+                <label htmlFor="pg-1" className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
                   GitHub Username
                 </label>
-                <input
+                <input id="pg-1"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -160,12 +149,7 @@ export default function ApiPlaygroundPage() {
                 <div className="bg-zinc-200 dark:bg-zinc-800 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Response:</span>
-                    <button
-                      onClick={() => copyToClipboard(JSON.stringify(responses.streak.data, null, 2))}
-                      className="p-1 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                    >
-                      <Copy size={14} />
-                    </button>
+                    <CopyButton text={JSON.stringify(responses.streak.data, null, 2)} ariaLabel="Copy JSON response" />
                   </div>
                   <pre className="text-xs text-zinc-700 dark:text-zinc-300 overflow-x-auto max-h-48">
                     {JSON.stringify(responses.streak.data, null, 2)}
@@ -184,10 +168,10 @@ export default function ApiPlaygroundPage() {
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
+                <label htmlFor="pg-2" className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
                   User A
                 </label>
-                <input
+                <input id="pg-2"
                   type="text"
                   value={userA}
                   onChange={(e) => setUserA(e.target.value)}
@@ -197,10 +181,10 @@ export default function ApiPlaygroundPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
+                <label htmlFor="pg-3" className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
                   User B
                 </label>
-                <input
+                <input id="pg-3"
                   type="text"
                   value={userB}
                   onChange={(e) => setUserB(e.target.value)}
@@ -235,12 +219,7 @@ export default function ApiPlaygroundPage() {
                 <div className="md:col-span-2 bg-zinc-200 dark:bg-zinc-800 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Response:</span>
-                    <button
-                      onClick={() => copyToClipboard(JSON.stringify(responses.compare.data, null, 2))}
-                      className="p-1 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                    >
-                      <Copy size={14} />
-                    </button>
+                    <CopyButton text={JSON.stringify(responses.compare.data, null, 2)} ariaLabel="Copy JSON response" />
                   </div>
                   <pre className="text-xs text-zinc-700 dark:text-zinc-300 overflow-x-auto max-h-48">
                     {JSON.stringify(responses.compare.data, null, 2)}
@@ -260,10 +239,10 @@ export default function ApiPlaygroundPage() {
             <div className="grid gap-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
+                  <label htmlFor="pg-4" className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
                     Username
                   </label>
-                  <input
+                  <input id="pg-4"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -272,10 +251,10 @@ export default function ApiPlaygroundPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
+                  <label htmlFor="pg-5" className="block text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">
                     Theme
                   </label>
-                  <select
+                  <select id="pg-5"
                     value={theme}
                     onChange={(e) => setTheme(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100"
@@ -291,29 +270,24 @@ export default function ApiPlaygroundPage() {
               </div>
 
               <div className="bg-zinc-200 dark:bg-zinc-800 rounded-xl p-4">
-                <label className="block text-xs font-semibold mb-2 text-zinc-600 dark:text-zinc-400">
+                <label htmlFor="pg-6" className="block text-xs font-semibold mb-2 text-zinc-600 dark:text-zinc-400">
                   Generated URL
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
+                  <input id="pg-6"
                     type="text"
                     readOnly
                     value={getImageLink()}
                     className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 text-xs font-mono"
                   />
-                  <button
-                    onClick={() => copyToClipboard(getImageLink())}
-                    className="p-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                  >
-                    <Copy size={16} />
-                  </button>
+                  <CopyButton text={getImageLink()} ariaLabel="Copy image URL" />
                 </div>
               </div>
 
               <div className="text-sm text-zinc-600 dark:text-zinc-400">
                 <p className="font-semibold mb-1">Usage in README:</p>
                 <code className="block bg-zinc-100 dark:bg-zinc-800 p-3 rounded-lg text-xs font-mono">
-                  {`[![GitHub Streak](${getImageLink()})](https://your-site.com)`}
+                  {readmeMarkdown(username.trim(), theme)}
                 </code>
               </div>
             </div>

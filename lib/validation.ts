@@ -42,7 +42,7 @@ export function validateTheme(themeName: string): ValidationResult {
     };
   }
 
-  if (!(themeName in themes)) {
+  if (!Object.hasOwn(themes, themeName)) {
     const validThemes = Object.keys(themes).join(", ");
     return {
       valid: false,
@@ -51,6 +51,59 @@ export function validateTheme(themeName: string): ValidationResult {
   }
 
   return { valid: true };
+}
+
+/**
+ * Clean up what users paste into a username box:
+ * "  @torvalds ", "https://github.com/torvalds/" -> "torvalds"
+ */
+export function normalizeUsername(input: string): string {
+  return input
+    .trim()
+    .replace(/^(https?:\/\/)?(www\.)?github\.com\//i, "")
+    .replace(/^@/, "")
+    .replace(/\/+$/, "");
+}
+
+/** Returns `themeName` if it is a known theme, otherwise "default". */
+export function resolveTheme(themeName: string | null | undefined): string {
+  return themeName && Object.hasOwn(themes, themeName) ? themeName : "default";
+}
+
+export const MAX_LEADERBOARD_USERS = 10;
+
+export interface ParsedUsernameList {
+  usernames: string[];
+  invalid: string[];
+  tooMany: boolean;
+}
+
+/**
+ * Parse a comma/space/newline separated list of usernames.
+ * Removes case-insensitive duplicates and keeps at most MAX_LEADERBOARD_USERS.
+ */
+export function parseUsernameList(input: string): ParsedUsernameList {
+  const seen = new Set<string>();
+  const usernames: string[] = [];
+  const invalid: string[] = [];
+
+  for (const raw of input.split(/[\s,]+/)) {
+    const name = normalizeUsername(raw);
+    if (!name) continue;
+    if (!validateGitHubUsername(name).valid) {
+      invalid.push(name);
+      continue;
+    }
+    if (seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    usernames.push(name);
+  }
+
+  return {
+    usernames: usernames.slice(0, MAX_LEADERBOARD_USERS),
+    invalid,
+    tooMany: usernames.length > MAX_LEADERBOARD_USERS,
+  };
 }
 
 /**

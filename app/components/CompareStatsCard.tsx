@@ -85,6 +85,9 @@ export function CompareStatsCard({
         },
     ];
 
+    const winsA = rows.filter((r) => r.leader === "userA").length;
+    const winsB = rows.filter((r) => r.leader === "userB").length;
+
     const avatarUrl = (username: string) =>
         `https://github.com/${encodeURIComponent(username)}.png?size=96`;
 
@@ -262,6 +265,16 @@ export function CompareStatsCard({
                         </div>
                     </div>
 
+                    {/* Overall result */}
+                    <p
+                        className="mt-6 text-base font-bold"
+                        style={{ color: "var(--theme-title)" }}
+                    >
+                        {winsA === winsB
+                            ? `It's a tie: ${winsA} metric${winsA === 1 ? "" : "s"} each.`
+                            : `@${winsA > winsB ? stats.userA.username : stats.userB.username} leads ${Math.max(winsA, winsB)} of ${rows.length} metrics.`}
+                    </p>
+
                     {/* Table Header */}
                     <div
                         className="hidden md:grid grid-cols-[1.5fr_1fr_1fr_1fr_auto] gap-2 mt-8 px-4"
@@ -363,6 +376,9 @@ export function CompareStatsCard({
                                             color: "var(--theme-title)",
                                         }}
                                     >
+                                        <span className="md:hidden text-xs font-semibold mr-2" style={{ color: "var(--theme-text)" }}>
+                                            @{stats.userA.username}
+                                        </span>
                                         {formatNumber(row.a)}
                                     </div>
 
@@ -373,12 +389,16 @@ export function CompareStatsCard({
                                             color: "var(--theme-title)",
                                         }}
                                     >
+                                        <span className="md:hidden text-xs font-semibold mr-2" style={{ color: "var(--theme-text)" }}>
+                                            @{stats.userB.username}
+                                        </span>
                                         {formatNumber(row.b)}
                                     </div>
 
                                     {/* Diff */}
                                     <div
                                         className="text-center text-sm font-bold"
+                                        aria-label={`Difference: ${formatDiff(row.diff)}`}
                                         style={{
                                             color:
                                                 row.diff === 0
@@ -401,7 +421,8 @@ export function CompareStatsCard({
                                                 <Trophy size={12} />
                                             )}
 
-                                            {winnerLabel}
+                                            <span className="md:hidden">Leader: </span>
+                                            {row.leader === "tie" ? winnerLabel : `@${winnerLabel}`}
                                         </span>
                                     </div>
                                 </div>

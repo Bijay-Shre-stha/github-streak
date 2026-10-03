@@ -41,9 +41,19 @@ There was a hydration mismatch on `app/page.tsx`. Next.js rendered the default H
 - A `useEffect` hook runs on mount to read the actual URL query parameters and local storage values, applies them to the state, and then sets `isInitialized` to `true`
 - Other `useEffect` hooks are guarded with `if (!isInitialized) return;` to prevent overwriting URL with defaults or fetching prematurely
 
+### 2. Data fetching, sharing and errors
+- Streak math lives in the pure `calculateStreakStats()` in `lib/github.ts` (UTC dates via `lib/dates.ts`, tested in `lib/streak.test.ts`).
+- `lib/github.ts` returns `null` for "user not found" and throws `GitHubApiError` for GitHub failures; routes map errors through `lib/apiErrors.ts` (429s carry `Retry-After`).
+- Client pages fetch with `getJson()` from `lib/apiClient.ts` and cancel stale requests with `AbortController`. The homepage fetches only on submit, example click, or initial URL load (no debounce).
+- All share/README URLs come from `lib/share.ts` (`SITE_URL` = `NEXT_PUBLIC_SITE_URL` or the production URL); copy actions use `app/components/CopyButton.tsx`.
+- `app/[username]/page.tsx` is a server component (validation, metadata) wrapping the client `ProfileView.tsx`.
+- `robots.txt` and `sitemap.xml` live in `public/`.
+
 ## API Endpoints
 - `/api/streak`: Calculates a single user's streak (typed handler with async/await)
 - `/api/streak-compare`: Compares two users' streaks
+- `/api/profile`: Public GitHub profile
+- `/api/streak-image`, `/api/streak-stats-image`: SVG cards
 
 ## Project Conventions (Continued)
 - **Error Handling:** Use proper error boundaries; see `app/components/ErrorBoundary.tsx`

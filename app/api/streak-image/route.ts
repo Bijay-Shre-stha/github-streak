@@ -3,6 +3,13 @@ import { fetchGitHubStreak } from "@/lib/github";
 import { themes } from "@/lib/themes";
 import { validateGitHubUsername, validateTheme } from "@/lib/validation";
 import { checkRateLimit, getClientIP } from "@/lib/rateLimit";
+import { formatUtcDate } from "@/lib/dates";
+import {
+  apiError,
+  errorFromException,
+  rateLimitedError,
+  textError,
+} from "@/lib/apiErrors";
 
 export const revalidate = 3600;
 
@@ -45,20 +52,13 @@ function flameIcon(
     </g>`;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<NextResponse> {
   // Rate limiting
   const clientIP = getClientIP(request);
   const rateLimitCheck = checkRateLimit(clientIP);
 
   if (rateLimitCheck.isLimited) {
-    return new NextResponse("Rate limit exceeded", {
-      status: 429,
-      headers: {
-        "Retry-After": Math.ceil(
-          (rateLimitCheck.resetTime - Date.now()) / 1000,
-        ).toString(),
-      },
-    });
+    return textError(rateLimitedError(rateLimitCheck.resetTime));
   }
 
   const { searchParams } = new URL(request.url);
@@ -66,24 +66,30 @@ export async function GET(request: Request) {
   const themeName = searchParams.get("theme") || "default";
 
   if (!username) {
-    return new NextResponse("Username is required", { status: 400 });
+    return textError(apiError(400, "MISSING_USERNAME", "Username is required"));
   }
 
   const usernameValidation = validateGitHubUsername(username);
   if (!usernameValidation.valid) {
-    return new NextResponse(usernameValidation.error, { status: 400 });
+    return textError(
+      apiError(400, "INVALID_USERNAME", usernameValidation.error ?? ""),
+    );
   }
 
   const themeValidation = validateTheme(themeName);
   if (!themeValidation.valid) {
-    return new NextResponse(themeValidation.error, { status: 400 });
+    return textError(
+      apiError(400, "INVALID_THEME", themeValidation.error ?? ""),
+    );
   }
 
   try {
     const stats = await fetchGitHubStreak(username);
 
     if (!stats) {
-      return new NextResponse("User not found or has no data", { status: 404 });
+      return textError(
+        apiError(404, "NOT_FOUND", "User not found or has no data"),
+      );
     }
 
     // ── Theme ────────────────────────────────────────────────────────────────
@@ -97,12 +103,7 @@ export async function GET(request: Request) {
     const textTotal = theme.total || textMain;
 
     // ── Date helpers ─────────────────────────────────────────────────────────
-    const fmt = (d: string) =>
-      new Date(d).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
+    const fmt = formatUtcDate;
 
     const totalDateSpan = stats.totalContributionsStart
       ? `${fmt(stats.totalContributionsStart)} - Present`
@@ -171,10 +172,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("streak-image error:", error);
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "Failed to generate streak image";
-    return new NextResponse(errorMessage, { status: 500 });
+    return textError(errorFromException(error, "Failed to generate image"));
   }
 }

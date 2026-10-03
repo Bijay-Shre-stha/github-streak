@@ -4,13 +4,7 @@ import { ExtendedStreakStats } from "@/lib/github";
 import { themes } from "@/lib/themes";
 import { BarChart3 } from "lucide-react";
 
-const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
-};
+import { formatUtcDate as formatDate } from "@/lib/dates";
 
 export function ExtraStatsCard({
     stats,
@@ -42,7 +36,7 @@ export function ExtraStatsCard({
                 style={{ backgroundColor: "var(--theme-bg)" }}
             >
                 <div className="p-6 sm:p-8 flex flex-col gap-5 relative overflow-hidden">
-                    <div className="absolute top-4 left-6 flex items-center gap-2 opacity-60">
+                    <div className="absolute top-4 left-6 flex items-center gap-2 opacity-80">
                         <BarChart3 size={14} style={{ color: "var(--theme-text)" }} />
                         <h3
                             className="text-xs font-semibold tracking-wide"

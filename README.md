@@ -1,82 +1,124 @@
 # GitHub Streak Counter
 
-A modern, full-stack Next.js application that calculates and displays your GitHub contribution streak stats. You can use this app to generate beautiful, highly accurate contribution streak badges and embed them directly into your GitHub README.
+A Next.js app that shows a GitHub user's current streak, longest streak and total contributions, and generates an SVG streak card you can embed in your GitHub README.
+
+Live site: <https://github-streak-bijay-shre-stha.vercel.app>
 
 ## Motivation
 
-Existing GitHub streak tracking tools often fall short by only measuring public contributions, completely ignoring the hard work developers put into private repositories. This can be highly frustrating when your "streak" drops to zero despite you coding every single day. I built this GitHub Streak Counter to overcome that limitation—it accurately measures **all** your activity, including your private commit history, ensuring your true dedication and daily coding efforts are properly recognized.
+Many streak tools only count public contributions, so a streak can drop to zero even when someone codes every day in private repositories. This project reads the GitHub contribution calendar through the GraphQL API, which includes private contributions **when GitHub exposes them** (see [Private contributions](#private-contributions)).
 
 ## Features
 
-- **Accurate Streak Calculation**: Utilizes the GitHub GraphQL API to fetch user contribution data and accurately determine the current and longest streaks.
-- **Beautiful UI**: Designed with Tailwind CSS v4, featuring smooth transitions, dynamic background gradients, and dark mode support.
-- **Debounced Search**: A seamless user experience with debounced username searching, displaying loading states and error handling elegantly.
-- **Customizable Themes**: Multiple carefully tuned themes (Default, Emerald, Ocean, Sunset, Midnight, Monochrome, Neon) to customize your streak display.
-- **Embeddable Badges**: (Planned/Available) easily generate URLs to embed SVG/PNG badges directly into your `README.md` on GitHub.
+- **Streak stats**: current streak, longest streak, total contributions, active days, average per day and best day.
+- **README card**: an SVG image at `/api/streak-image`, with a "Copy README Markdown" button on every result.
+- **Profile pages**: shareable `/<username>` pages (for example `/torvalds?theme=radical`) with per-user metadata.
+- **Compare mode**: put two users side by side with a winner for each metric. You can share the link (`/?mode=compare&userA=a&userB=b`).
+- **Custom leaderboards**: rank up to 10 usernames. The list lives in the URL (`/leaderboard?users=a,b,c`), so nothing is stored on a server.
+- **Theme gallery**: preview every theme with your own stats at `/themes`.
+- **Recent searches**: saved only in your browser's localStorage, and you can clear them.
+- **API playground**: try the endpoints at `/api-playground`.
 
-## Tech Stack
+## Themes
 
-- **Framework**: [Next.js](https://nextjs.org/) (App Router)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Data Fetching**: GitHub GraphQL API
-
-## Getting Started
-
-### Prerequisites
-
-You will need a GitHub Personal Access Token to authenticate with the GitHub API. 
-
-1. Go to your GitHub Settings > Developer Settings > Personal access tokens.
-2. Generate a new token (classic or fine-grained) with `read:user` and `repo` (if you want to include private contributions) permissions.
-
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-username/github-streak.git
-   cd github-streak
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   ```
-
-3. Set up environment variables:
-   Create a `.env.local` file in the root directory and add your GitHub token:
-   ```env
-   GITHUB_TOKEN=your_personal_access_token_here
-   ```
-
-4. Run the development server:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
-
-5. Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+`default`, `github`, `radical`, `tokyonight`, `dracula`, `react`
 
 ## Embedding in your README
 
-*To be configured based on your deployment URL.*
-
-Once deployed, you can add your streak stats to your GitHub README by using an image tag pointing to the API route:
-
 ```markdown
-[![GitHub Streak](https://your-deployment-url.com/api/streak-image?username=yourusername&theme=default)](https://your-deployment-url.com/)
+[![GitHub Streak](https://github-streak-bijay-shre-stha.vercel.app/api/streak-image?username=YOUR_USERNAME&theme=radical)](https://github-streak-bijay-shre-stha.vercel.app/YOUR_USERNAME?theme=radical)
 ```
+
+Use `/api/streak-stats-image` instead of `/api/streak-image` for a taller card with extra stats. Images are cached for up to one hour.
+
+## Routes
+
+| Route | Description |
+| --- | --- |
+| `/` | Search and compare (`?username=`, `?mode=compare&userA=&userB=`, `?theme=`) |
+| `/<username>` | Profile page (`?theme=`) |
+| `/leaderboard` | Custom leaderboard (`?users=a,b,c`) |
+| `/themes` | Theme gallery (`?username=`) |
+| `/api-playground` | Interactive API tester |
+
+### API
+
+| Endpoint | Params | Returns |
+| --- | --- | --- |
+| `GET /api/streak` | `username`, optional `variant=extended` | JSON streak stats |
+| `GET /api/streak-compare` | `userA`, `userB` | JSON comparison with `diff` and `leaders` |
+| `GET /api/profile` | `username` | JSON public profile (`email` is always `null`) |
+| `GET /api/streak-image` | `username`, optional `theme` | SVG card |
+| `GET /api/streak-stats-image` | `username`, optional `theme` | SVG card with extended stats |
+
+Errors are JSON `{ error, code }` (plain text for the image routes):
+
+- `400`: `MISSING_USERNAME`, `INVALID_USERNAME`, `INVALID_THEME`, `MISSING_USERS`, `INVALID_USER_A`/`INVALID_USER_B`, or `SAME_USER`.
+- `404`: `NOT_FOUND`. Compare responses also include `missingUsers`.
+- `429`: `RATE_LIMITED` (60 requests per minute per IP) or `UPSTREAM_RATE_LIMITED` (GitHub's limit). Both include a `Retry-After` header.
+- `502`/`500`: GitHub or server errors.
+
+## How streaks are calculated
+
+- Dates are UTC calendar dates from GitHub's contribution calendar.
+- A streak is a run of consecutive days with at least one contribution.
+- If today has no contributions yet, a streak that reached yesterday still counts as current.
+
+The rules are covered by tests in `lib/streak.test.ts`.
+
+## Private contributions
+
+Private contributions are counted only when one of these is true:
+
+1. The user turned on **Include private contributions on my profile** in GitHub settings. GitHub then reports them as anonymous counts.
+2. The server's `GITHUB_TOKEN` belongs to someone who can see those contributions.
+
+Otherwise only public contributions are counted.
+
+## Getting started
+
+### Environment variables
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `GITHUB_TOKEN` | yes | GitHub personal access token used for GraphQL requests. A token with no scopes is enough for public data. Add `repo` only if you want the token owner's private contributions to count. |
+| `NEXT_PUBLIC_SITE_URL` | no | Public URL used in share links, README snippets and metadata. Defaults to `https://github-streak-bijay-shre-stha.vercel.app`. Set it when you deploy your own copy. |
+
+Create `.env.local`:
+
+```env
+GITHUB_TOKEN=your_personal_access_token_here
+NEXT_PUBLIC_SITE_URL=https://your-deployment.example.com
+```
+
+### Run locally
+
+```bash
+git clone https://github.com/Bijay-Shre-stha/github-streak.git
+cd github-streak
+npm install
+npm run dev
+```
+
+Open <http://localhost:3000>.
+
+### Scripts
+
+```bash
+npm test -- --run   # unit + API route tests (Vitest)
+npm run lint
+npm run build
+```
+
+## Limitations
+
+- Rate limiting is in memory and applies per server instance, so it is not shared across serverless instances.
+- Each lookup makes one GitHub GraphQL request per contribution year. Users with long histories use more of the token's GitHub rate limit.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please open a pull request.
 
 ## License
 
-This project is open source and available under the MIT License.
+MIT

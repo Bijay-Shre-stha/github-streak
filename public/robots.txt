@@ -1,25 +1,11 @@
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /private/
 
-# SEO: index badge images (embeddable <img>), not JSON data endpoints
+# Index badge images (embeddable <img>), not JSON data endpoints
 Allow: /api/streak-image
 Allow: /api/streak-stats-image
 Disallow: /api/streak
 Disallow: /api/streak-compare
 Disallow: /api/profile
 
-# Sitemap location
 Sitemap: https://github-streak-bijay-shre-stha.vercel.app/sitemap.xml
-
-# Performance and caching guidelines
-Crawl-delay: 1
-
-# Important: Block sensitive paths
-Disallow: /checkout/
-Disallow: /account/
-Disallow: /dashboard/
-
-# SEO: Allow access to generated SVG badge images
-Allow: /_next/static/

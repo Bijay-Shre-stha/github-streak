@@ -2,46 +2,32 @@ import { NextResponse } from "next/server";
 import { fetchGitHubUserProfile } from "@/lib/github";
 import { validateGitHubUsername } from "@/lib/validation";
 import { checkRateLimit, getClientIP } from "@/lib/rateLimit";
+import {
+  apiError,
+  errorFromException,
+  rateLimitedError,
+  jsonError as json,
+} from "@/lib/apiErrors";
 
 export const revalidate = 3600;
 
-export async function GET(request: Request) {
-  const clientIP = getClientIP(request);
-  const rateLimitCheck = checkRateLimit(clientIP);
-
+export async function GET(request: Request): Promise<NextResponse> {
+  const rateLimitCheck = checkRateLimit(getClientIP(request));
   if (rateLimitCheck.isLimited) {
-    return NextResponse.json(
-      {
-        error: "Rate limit exceeded",
-        code: "RATE_LIMITED",
-        retryAfter: Math.ceil((rateLimitCheck.resetTime - Date.now()) / 1000),
-      },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": Math.ceil(
-            (rateLimitCheck.resetTime - Date.now()) / 1000,
-          ).toString(),
-        },
-      },
-    );
+    return json(rateLimitedError(rateLimitCheck.resetTime));
   }
 
   const { searchParams } = new URL(request.url);
   const username = searchParams.get("username")?.trim();
 
   if (!username) {
-    return NextResponse.json(
-      { error: "Username is required", code: "MISSING_USERNAME" },
-      { status: 400 },
-    );
+    return json(apiError(400, "MISSING_USERNAME", "Username is required"));
   }
 
   const usernameValidation = validateGitHubUsername(username);
   if (!usernameValidation.valid) {
-    return NextResponse.json(
-      { error: usernameValidation.error, code: "INVALID_USERNAME" },
-      { status: 400 },
+    return json(
+      apiError(400, "INVALID_USERNAME", usernameValidation.error ?? ""),
     );
   }
 
@@ -49,23 +35,12 @@ export async function GET(request: Request) {
     const profile = await fetchGitHubUserProfile(username);
 
     if (!profile) {
-      return NextResponse.json(
-        {
-          error: "User not found",
-          code: "NOT_FOUND",
-        },
-        { status: 404 },
-      );
+      return json(apiError(404, "NOT_FOUND", "User not found"));
     }
 
     return NextResponse.json(profile);
   } catch (error) {
     console.error("Profile API error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to fetch profile";
-    return NextResponse.json(
-      { error: errorMessage, code: "INTERNAL_ERROR" },
-      { status: 500 },
-    );
+    return json(errorFromException(error, "Failed to fetch profile"));
   }
 }
