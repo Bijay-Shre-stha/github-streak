@@ -2,30 +2,20 @@ import { NextResponse } from "next/server";
 import { fetchGitHubStreak, fetchGitHubStreakExtended } from "@/lib/github";
 import { validateGitHubUsername } from "@/lib/validation";
 import { checkRateLimit, getClientIP } from "@/lib/rateLimit";
+import {
+  apiError,
+  errorFromException,
+  rateLimitedError,
+  jsonError as json,
+} from "@/lib/apiErrors";
 
 export const revalidate = 3600; // Cache for 1 hour
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<NextResponse> {
   // Rate limiting
-  const clientIP = getClientIP(request);
-  const rateLimitCheck = checkRateLimit(clientIP);
-
+  const rateLimitCheck = checkRateLimit(getClientIP(request));
   if (rateLimitCheck.isLimited) {
-    return NextResponse.json(
-      {
-        error: "Rate limit exceeded",
-        code: "RATE_LIMITED",
-        retryAfter: Math.ceil((rateLimitCheck.resetTime - Date.now()) / 1000),
-      },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": Math.ceil(
-            (rateLimitCheck.resetTime - Date.now()) / 1000,
-          ).toString(),
-        },
-      },
-    );
+    return json(rateLimitedError(rateLimitCheck.resetTime));
   }
 
   const { searchParams } = new URL(request.url);
@@ -35,17 +25,13 @@ export async function GET(request: Request) {
 
   // Validate username
   if (!username) {
-    return NextResponse.json(
-      { error: "Username is required", code: "MISSING_USERNAME" },
-      { status: 400 },
-    );
+    return json(apiError(400, "MISSING_USERNAME", "Username is required"));
   }
 
   const usernameValidation = validateGitHubUsername(username);
   if (!usernameValidation.valid) {
-    return NextResponse.json(
-      { error: usernameValidation.error, code: "INVALID_USERNAME" },
-      { status: 400 },
+    return json(
+      apiError(400, "INVALID_USERNAME", usernameValidation.error ?? ""),
     );
   }
 
@@ -55,23 +41,18 @@ export async function GET(request: Request) {
       : await fetchGitHubStreak(username);
 
     if (!data) {
-      return NextResponse.json(
-        {
-          error: "User not found or has no contribution data",
-          code: "NOT_FOUND",
-        },
-        { status: 404 },
+      return json(
+        apiError(
+          404,
+          "NOT_FOUND",
+          `GitHub user "${username}" was not found or has no contribution data`,
+        ),
       );
     }
 
     return NextResponse.json(data);
   } catch (error) {
     console.error("API error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to fetch streak data";
-    return NextResponse.json(
-      { error: errorMessage, code: "INTERNAL_ERROR" },
-      { status: 500 },
-    );
+    return json(errorFromException(error, "Failed to fetch streak data"));
   }
 }

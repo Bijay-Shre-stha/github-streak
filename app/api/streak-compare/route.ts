@@ -3,29 +3,19 @@ import { fetchGitHubStreakExtended } from "@/lib/github";
 import { checkRateLimit, getClientIP } from "@/lib/rateLimit";
 import { buildComparedStreakStats } from "@/lib/streakCompare";
 import { validateGitHubUsername } from "@/lib/validation";
+import {
+  apiError,
+  errorFromException,
+  rateLimitedError,
+  jsonError as json,
+} from "@/lib/apiErrors";
 
 export const revalidate = 3600; // Cache for 1 hour
 
-export async function GET(request: Request) {
-  const clientIP = getClientIP(request);
-  const rateLimitCheck = checkRateLimit(clientIP);
-
+export async function GET(request: Request): Promise<NextResponse> {
+  const rateLimitCheck = checkRateLimit(getClientIP(request));
   if (rateLimitCheck.isLimited) {
-    return NextResponse.json(
-      {
-        error: "Rate limit exceeded",
-        code: "RATE_LIMITED",
-        retryAfter: Math.ceil((rateLimitCheck.resetTime - Date.now()) / 1000),
-      },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": Math.ceil(
-            (rateLimitCheck.resetTime - Date.now()) / 1000,
-          ).toString(),
-        },
-      },
-    );
+    return json(rateLimitedError(rateLimitCheck.resetTime));
   }
 
   const { searchParams } = new URL(request.url);
@@ -33,34 +23,29 @@ export async function GET(request: Request) {
   const userB = searchParams.get("userB")?.trim();
 
   if (!userA || !userB) {
-    return NextResponse.json(
-      {
-        error: "Both userA and userB are required",
-        code: "MISSING_USERS",
-      },
-      { status: 400 },
+    return json(
+      apiError(400, "MISSING_USERS", "Both userA and userB are required"),
     );
   }
 
   const userAValidation = validateGitHubUsername(userA);
   if (!userAValidation.valid) {
-    return NextResponse.json(
-      {
-        error: `Invalid userA: ${userAValidation.error}`,
-        code: "INVALID_USER_A",
-      },
-      { status: 400 },
+    return json(
+      apiError(400, "INVALID_USER_A", `Invalid userA: ${userAValidation.error}`),
     );
   }
 
   const userBValidation = validateGitHubUsername(userB);
   if (!userBValidation.valid) {
-    return NextResponse.json(
-      {
-        error: `Invalid userB: ${userBValidation.error}`,
-        code: "INVALID_USER_B",
-      },
-      { status: 400 },
+    return json(
+      apiError(400, "INVALID_USER_B", `Invalid userB: ${userBValidation.error}`),
+    );
+  }
+
+  // GitHub usernames are case-insensitive
+  if (userA.toLowerCase() === userB.toLowerCase()) {
+    return json(
+      apiError(400, "SAME_USER", "Choose two different GitHub usernames"),
     );
   }
 
@@ -71,33 +56,22 @@ export async function GET(request: Request) {
     ]);
 
     if (!statsA || !statsB) {
-      return NextResponse.json(
-        {
-          error:
-            "One or both users were not found or have no contribution data",
-          code: "NOT_FOUND",
-          missingUsers: {
-            userA: !statsA,
-            userB: !statsB,
-          },
-        },
-        { status: 404 },
+      const missing = [!statsA && userA, !statsB && userB].filter(Boolean);
+      return json(
+        apiError(
+          404,
+          "NOT_FOUND",
+          missing.length === 2
+            ? `Neither "${userA}" nor "${userB}" was found or has contribution data`
+            : `GitHub user "${missing[0]}" was not found or has no contribution data`,
+          { missingUsers: { userA: !statsA, userB: !statsB } },
+        ),
       );
     }
 
-    const comparedStats = buildComparedStreakStats(statsA, statsB);
-    return NextResponse.json(comparedStats);
+    return NextResponse.json(buildComparedStreakStats(statsA, statsB));
   } catch (error) {
     console.error("streak-compare API error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to compare streak data";
-
-    return NextResponse.json(
-      {
-        error: errorMessage,
-        code: "INTERNAL_ERROR",
-      },
-      { status: 500 },
-    );
+    return json(errorFromException(error, "Failed to compare streak data"));
   }
 }

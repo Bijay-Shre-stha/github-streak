@@ -1,127 +1,89 @@
 "use client";
 
-import { Send, Mail, Copy, Check, Share2 } from "lucide-react";
-import { useState } from "react";
+import { Send, Mail, Share2 } from "lucide-react";
+import { useEffect, useState, type ReactElement } from "react";
+import { CopyButton } from "./CopyButton";
 
 interface ShareButtonsProps {
+  /** Absolute URL to share; must point to a working page. */
+  url: string;
   title?: string;
   text?: string;
-  url?: string;
-  themeName?: string;
-  username?: string;
 }
 
+const BUTTON =
+  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors active:scale-95 bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800";
+
 export function ShareButtons({
-  title = "GitHub Streak Stats",
-  text = "Check out this GitHub contribution streak statistics!",
   url,
-  themeName,
-  username,
-}: ShareButtonsProps) {
-  const [copied, setCopied] = useState(false);
+  title = "GitHub Streak Stats",
+  text = "Check out this GitHub contribution streak!",
+}: ShareButtonsProps): ReactElement {
+  // Detected after mount so server and client render the same markup.
+  const [canShare, setCanShare] = useState(false);
+  const [shareError, setShareError] = useState("");
 
-  const defaultUrl = typeof window !== "undefined"
-    ? `${window.location.origin}${window.location.pathname}?username=${username}&theme=${themeName}`
-    : url;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCanShare(typeof navigator.share === "function");
+  }, []);
 
-  const getShareData = (platform: string) => {
-    const shareUrl = defaultUrl || url || "";
-    const shareText = text + (username ? ` (@${username})` : "");
-
-    switch (platform) {
-      case "twitter":
-        return `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
-      case "linkedin":
-        return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
-      case "facebook":
-        return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-      case "email":
-        return `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`;
-      default:
-        return shareUrl;
-    }
-  };
-
-  const handleShare = (platform: string) => {
-    const shareUrl = getShareData(platform);
-
-    if (platform === "native") {
-      if (navigator.share) {
-        navigator.share({
-          title: title,
-          text: text,
-          url: shareUrl,
-        });
+  const handleNativeShare = async (): Promise<void> => {
+    setShareError("");
+    try {
+      await navigator.share({ title, text, url });
+    } catch (err) {
+      // AbortError = user closed the share sheet; not a failure.
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setShareError("Sharing failed. Use Copy link instead.");
       }
-      return;
-    }
-
-    window.open(shareUrl, "_blank", "noopener,noreferrer");
-  };
-
-  const handleCopy = () => {
-    if (defaultUrl) {
-      navigator.clipboard.writeText(defaultUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const encodedUrl = encodeURIComponent(url);
+  const encodedText = encodeURIComponent(text);
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <button
-        onClick={() => handleShare("native")}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all hover:scale-105 active:scale-95 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-        title="Share"
-      >
-        <Share2 size={14} />
-        Share
-      </button>
-
-      <button
-        onClick={() => handleShare("twitter")}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all hover:scale-105 active:scale-95 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/30"
-        title="Share on Twitter"
-      >
-        <Send size={14} className="rotate-140" />
-        Twitter
-      </button>
-
-      <button
-        onClick={() => handleShare("linkedin")}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all hover:scale-105 active:scale-95 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/30"
-        title="Share on LinkedIn"
-      >
-        <Send size={14} className="rotate-45" />
-        LinkedIn
-      </button>
-
-      <button
-        onClick={() => handleShare("email")}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all hover:scale-105 active:scale-95 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-        title="Share via Email"
-      >
-        <Mail size={14} />
-        Email
-      </button>
-
-      <button
-        onClick={handleCopy}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all hover:scale-105 active:scale-95 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-        title="Copy Link"
-      >
-        {copied ? (
-          <>
-            <Check size={14} className="text-green-500" />
-            Copied!
-          </>
-        ) : (
-          <>
-            <Copy size={14} />
-            Copy
-          </>
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Share">
+        {canShare && (
+          <button type="button" onClick={handleNativeShare} className={BUTTON}>
+            <Share2 size={14} aria-hidden />
+            Share
+          </button>
         )}
-      </button>
+        <CopyButton text={url} label="Copy link" />
+        <a
+          href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={BUTTON}
+          aria-label="Share on X (opens in a new tab)"
+        >
+          <Send size={14} aria-hidden />X
+        </a>
+        <a
+          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={BUTTON}
+          aria-label="Share on LinkedIn (opens in a new tab)"
+        >
+          <Send size={14} aria-hidden />
+          LinkedIn
+        </a>
+        <a
+          href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${text}\n\n${url}`)}`}
+          className={BUTTON}
+          aria-label="Share via email"
+        >
+          <Mail size={14} aria-hidden />
+          Email
+        </a>
+      </div>
+      <p role="alert" className="text-sm text-red-600 dark:text-red-400 empty:hidden">
+        {shareError}
+      </p>
     </div>
   );
 }

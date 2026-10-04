@@ -3,6 +3,10 @@ import {
   validateGitHubUsername,
   validateTheme,
   getAvailableThemes,
+  normalizeUsername,
+  resolveTheme,
+  parseUsernameList,
+  MAX_LEADERBOARD_USERS,
 } from "@/lib/validation";
 
 describe("validation utilities", () => {
@@ -98,6 +102,48 @@ describe("validation utilities", () => {
       expect(themes).toContain("default");
       expect(themes).toContain("github");
       expect(themes).toContain("radical");
+    });
+  });
+
+  describe("normalizeUsername", () => {
+    it("strips whitespace, @ and github.com URLs", () => {
+      expect(normalizeUsername("  torvalds ")).toBe("torvalds");
+      expect(normalizeUsername("@torvalds")).toBe("torvalds");
+      expect(normalizeUsername("https://github.com/torvalds/")).toBe("torvalds");
+      expect(normalizeUsername("github.com/torvalds")).toBe("torvalds");
+    });
+  });
+
+  describe("resolveTheme", () => {
+    it("falls back to default for unknown or missing themes", () => {
+      expect(resolveTheme("radical")).toBe("radical");
+      expect(resolveTheme("nope")).toBe("default");
+      expect(resolveTheme(null)).toBe("default");
+      expect(resolveTheme(undefined)).toBe("default");
+      expect(resolveTheme("__proto__")).toBe("default");
+    });
+  });
+
+  describe("parseUsernameList", () => {
+    it("splits on commas, spaces and newlines and dedupes case-insensitively", () => {
+      expect(parseUsernameList("a, b\nc  A,,@b").usernames).toEqual(["a", "b", "c"]);
+    });
+
+    it("reports invalid usernames separately", () => {
+      const r = parseUsernameList("good, -bad, also--bad");
+      expect(r.usernames).toEqual(["good"]);
+      expect(r.invalid).toEqual(["-bad", "also--bad"]);
+    });
+
+    it("caps the list and flags when too many were given", () => {
+      const names = Array.from({ length: MAX_LEADERBOARD_USERS + 2 }, (_, i) => `u${i}`);
+      const r = parseUsernameList(names.join(","));
+      expect(r.usernames).toHaveLength(MAX_LEADERBOARD_USERS);
+      expect(r.tooMany).toBe(true);
+    });
+
+    it("returns an empty list for empty input", () => {
+      expect(parseUsernameList("  ")).toEqual({ usernames: [], invalid: [], tooMany: false });
     });
   });
 });

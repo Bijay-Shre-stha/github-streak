@@ -1,185 +1,327 @@
 "use client";
 
-import { useState } from "react";
-import { Trophy, Users, Flame, TrendingUp, Share2 } from "lucide-react";
+import { useEffect, useRef, useState, type SubmitEvent, type ReactElement } from "react";
+import Link from "next/link";
+import { ArrowLeft, Loader2, Share2, Trophy, Users } from "lucide-react";
+import type { StreakStats } from "@/lib/github";
+import { ApiRequestError, getJson, isAbortError, rateLimitMessage } from "@/lib/apiClient";
+import { MAX_LEADERBOARD_USERS, parseUsernameList } from "@/lib/validation";
+import { leaderboardUrl } from "@/lib/share";
+import { CopyButton } from "../components/CopyButton";
+import { ShareButtons } from "../components/ShareButtons";
 
-interface LeaderboardEntry {
+type Metric = "currentStreak" | "longestStreak" | "totalContributions";
+
+const METRICS: { key: Metric; label: string }[] = [
+  { key: "currentStreak", label: "Current streak" },
+  { key: "longestStreak", label: "Longest streak" },
+  { key: "totalContributions", label: "Total contributions" },
+];
+
+interface Row {
   username: string;
-  currentStreak: number;
-  longestStreak: number;
-  totalContributions: number;
-  activeDays: number;
-  rank: number;
-  change: number;
+  stats?: StreakStats;
+  error?: string;
 }
 
-// Mock leaderboard data - in production, this would come from a database
-const MOCK_LEADERBOARD: LeaderboardEntry[] = Array.from({ length: 20 }, (_, i) => ({
-  username: `developer_${20 - i}`,
-  currentStreak: 100 - i * 2,
-  longestStreak: 200 - i * 4,
-  totalContributions: 5000 - i * 150,
-  activeDays: 365 - i * 10,
-  rank: i + 1,
-  change: i < 5 ? 0 : i < 10 ? 1 : -1,
-}));
+const BUTTON =
+  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800";
 
-type TimeRange = "daily" | "weekly" | "all";
+export default function LeaderboardPage(): ReactElement {
+  const [input, setInput] = useState("");
+  const [usernames, setUsernames] = useState<string[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [metric, setMetric] = useState<Metric>("currentStreak");
+  const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [rateLimited, setRateLimited] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
 
-export default function LeaderboardPage() {
-  const [leaderboard] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
-  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const load = async (names: string[]): Promise<void> => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-  const getRankIcon = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return <Trophy className="text-yellow-400" size={18} />;
-      case 2:
-        return <Trophy className="text-gray-400" size={18} />;
-      case 3:
-        return <Trophy className="text-amber-600" size={18} />;
-      default:
-        return <span className="text-zinc-400 font-bold">{rank}</span>;
+    setUsernames(names);
+    setIsLoading(true);
+    setRateLimited("");
+    setRows([]);
+    window.history.replaceState({}, "", `/leaderboard?users=${names.map(encodeURIComponent).join(",")}`);
+
+    const results = await Promise.allSettled(
+      names.map((name) =>
+        getJson<StreakStats>(
+          `/api/streak?username=${encodeURIComponent(name)}`,
+          controller.signal,
+        ),
+      ),
+    );
+    if (controller.signal.aborted) return;
+
+    let retryAfter: number | undefined;
+    let limited = false;
+    setRows(
+      results.map((result, i): Row => {
+        if (result.status === "fulfilled") return { username: result.value.username, stats: result.value };
+        const err = result.reason;
+        if (isAbortError(err)) return { username: names[i], error: "Cancelled" };
+        if (err instanceof ApiRequestError && err.status === 429) {
+          limited = true;
+          retryAfter = Math.max(retryAfter ?? 0, err.retryAfter ?? 0) || undefined;
+          return { username: names[i], error: "Rate limited" };
+        }
+        return {
+          username: names[i],
+          error: err instanceof ApiRequestError && err.status === 404 ? "User not found" : "Couldn't load",
+        };
+      }),
+    );
+    if (limited) setRateLimited(rateLimitMessage(retryAfter));
+    setIsLoading(false);
+  };
+
+  const submit = (raw: string): void => {
+    const parsed = parseUsernameList(raw);
+    const problems: string[] = [];
+    if (parsed.invalid.length) {
+      problems.push(`Not valid GitHub usernames: ${parsed.invalid.join(", ")}.`);
     }
+    if (parsed.tooMany) {
+      problems.push(`Only the first ${MAX_LEADERBOARD_USERS} usernames are used.`);
+    }
+    if (parsed.usernames.length < 2) {
+      problems.push("Add at least two different usernames.");
+      setFormError(problems.join(" "));
+      return;
+    }
+    setFormError(problems.join(" "));
+    void load(parsed.usernames);
   };
 
-  const getChangeIndicator = (change: number) => {
-    if (change === 0) return null;
-    if (change > 0) return <TrendingUp className="text-green-400" size={14} />;
-    return <Flame className="text-red-400" size={14} />;
+  // Load a shared leaderboard from ?users=a,b,c after mount.
+  useEffect(() => {
+    const users = new URLSearchParams(window.location.search).get("users") ?? "";
+    if (users) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInput(users.split(",").join(", "));
+      submit(users);
+    }
+    return () => abortRef.current?.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSubmit = (e: SubmitEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    submit(input);
   };
+
+  const ranked = rows
+    .filter((r): r is Row & { stats: StreakStats } => Boolean(r.stats))
+    .sort((a, b) => b.stats[metric] - a.stats[metric]);
+  const failed = rows.filter((r) => !r.stats);
+  // Standard competition ranking: ties share a rank (1, 1, 3).
+  const rankOf = (i: number): number => {
+    while (i > 0 && ranked[i - 1].stats[metric] === ranked[i].stats[metric]) i--;
+    return i + 1;
+  };
+  const shareUrl = usernames.length ? leaderboardUrl(usernames) : "";
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-black font-sans text-zinc-900 dark:text-zinc-50">
-      {/* Background gradients */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-green-500/5 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/5 blur-[120px]" />
       </div>
 
-      <main className="relative flex flex-col items-center px-4 sm:px-6 lg:px-8 py-12 max-w-4xl mx-auto w-full">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-6 bg-clip-text text-transparent bg-linear-to-r from-zinc-900 via-zinc-800 to-zinc-600 dark:from-white dark:via-zinc-200 dark:to-zinc-500 pb-2">
-            GitHub Streak Leaderboard
+      <main className="relative flex flex-col items-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12 max-w-4xl mx-auto w-full">
+        <nav aria-label="Breadcrumb" className="w-full mb-6">
+          <Link href="/" className={BUTTON}>
+            <ArrowLeft size={14} aria-hidden />
+            Home
+          </Link>
+        </nav>
+
+        <div className="text-center mb-10">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            Create a streak leaderboard
           </h1>
-          <p className="max-w-2xl mx-auto text-lg text-zinc-600 dark:text-zinc-400">
-            Top developers by contribution streak. Check if you can make it to the top!
+          <p className="max-w-2xl mx-auto text-lg text-zinc-700 dark:text-zinc-300">
+            Rank your team, classmates or friends by GitHub streak. Add up to{" "}
+            {MAX_LEADERBOARD_USERS} usernames and share the link. Nothing is
+            stored: the list lives in the URL and stats are fetched live.
           </p>
         </div>
 
-        {/* Time Range Selector */}
-        <div className="flex items-center gap-2 mb-8">
-          <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Period:</span>
-          <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-900 rounded-lg p-1">
-            {["all", "weekly", "daily"].map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range as TimeRange)}
-                className={`px-3 py-1 rounded-md text-sm font-semibold transition-all ${
-                  timeRange === range
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-black"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                {range.charAt(0).toUpperCase() + range.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Leaderboard */}
-        <div className="w-full bg-zinc-100 dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-xl border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-zinc-200 dark:bg-zinc-800">
-                <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
-                  Rank
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
-                  Developer
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
-                  Streak
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
-                  Longest
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
-                  Contributions
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
-                  Change
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((entry, index) => (
-                <tr
-                  key={entry.username}
-                  className={`border-t border-zinc-200 dark:border-zinc-800 ${
-                    index < 3 ? "bg-zinc-50 dark:bg-zinc-950" : ""
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center">
-                      {getRankIcon(entry.rank)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                        {entry.rank}
-                      </div>
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                        @{entry.username}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                      {entry.currentStreak}
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400"> days</span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="text-lg font-bold text-yellow-500 dark:text-yellow-400">
-                      {entry.longestStreak}
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400"> days</span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                      {entry.totalContributions.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {getChangeIndicator(entry.change)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Create Your Own Leaderboard */}
-        <div className="mt-12 w-full max-w-2xl">
-          <div className="bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center gap-3 mb-4">
-              <Users className="text-purple-500" size={20} />
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                Create Your Own Leaderboard
-              </h2>
-            </div>
-            <p className="text-zinc-600 dark:text-zinc-400 mb-4">
-              Want to track your own developers or team? Create a custom leaderboard with your own metrics.
+        <form onSubmit={handleSubmit} className="w-full max-w-2xl" noValidate>
+          <label htmlFor="usernames" className="block font-semibold mb-2">
+            GitHub usernames
+          </label>
+          <textarea
+            id="usernames"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            rows={3}
+            placeholder="torvalds, gaearon, sindresorhus"
+            aria-describedby="usernames-help"
+            className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-4 py-3 font-mono text-sm placeholder:text-zinc-500"
+            spellCheck={false}
+            autoCapitalize="none"
+          />
+          <p id="usernames-help" className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Separate with commas, spaces or new lines. Duplicates are removed.
+          </p>
+          {formError && (
+            <p role="alert" className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">
+              {formError}
             </p>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold text-sm hover:scale-105 transition-transform">
-              <Share2 size={14} />
-              <span>Generate Leaderboard Link</span>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold text-sm disabled:opacity-50"
+            >
+              {isLoading ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Share2 size={14} aria-hidden />}
+              Generate Leaderboard Link
             </button>
+            {!input.trim() && (
+              <button
+                type="button"
+                className={BUTTON}
+                onClick={() => {
+                  setInput("torvalds, gaearon, sindresorhus");
+                  submit("torvalds, gaearon, sindresorhus");
+                }}
+              >
+                Try an example
+              </button>
+            )}
           </div>
+        </form>
+
+        <div role="status" aria-live="polite" className="sr-only">
+          {isLoading
+            ? `Loading ${usernames.length} profiles…`
+            : rows.length
+              ? `Leaderboard ready with ${ranked.length} of ${rows.length} profiles.`
+              : ""}
         </div>
+
+        {rateLimited && (
+          <p role="alert" className="mt-6 w-full max-w-2xl rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 px-4 py-3 text-amber-900 dark:text-amber-200">
+            {rateLimited} Profiles marked “Rate limited” were skipped.
+          </p>
+        )}
+
+        {shareUrl && !isLoading && (
+          <section aria-labelledby="share-heading" className="mt-8 w-full max-w-2xl rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4">
+            <h2 id="share-heading" className="font-semibold mb-2">Your leaderboard link</h2>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <label htmlFor="share-url" className="sr-only">Leaderboard link</label>
+              <input
+                id="share-url"
+                readOnly
+                value={shareUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 font-mono text-xs"
+              />
+              <CopyButton text={shareUrl} label="Copy link" />
+            </div>
+            <div className="mt-3">
+              <ShareButtons url={shareUrl} title="GitHub Streak Leaderboard" text="Who has the longest GitHub streak?" />
+            </div>
+          </section>
+        )}
+
+        {isLoading && (
+          <div className="mt-10 flex items-center gap-3 text-zinc-600 dark:text-zinc-400" aria-hidden>
+            <Loader2 className="animate-spin" size={20} />
+            Loading {usernames.length} profiles…
+          </div>
+        )}
+
+        {!isLoading && rows.length > 0 && (
+          <section aria-labelledby="board-heading" className="mt-10 w-full">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 id="board-heading" className="text-2xl font-bold flex items-center gap-2">
+                <Trophy className="text-amber-500" size={22} aria-hidden />
+                Leaderboard
+              </h2>
+              <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-900 rounded-lg p-1" role="group" aria-label="Rank by">
+                {METRICS.map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setMetric(m.key)}
+                    aria-pressed={metric === m.key}
+                    className={`px-3 py-1 rounded-md text-sm font-semibold transition-colors ${metric === m.key
+                      ? "bg-zinc-900 text-white dark:bg-white dark:text-black"
+                      : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                      }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {ranked.length === 0 ? (
+              <p className="text-zinc-600 dark:text-zinc-400">None of these profiles could be loaded.</p>
+            ) : (
+              <>
+              <div className="hidden sm:grid grid-cols-[2.5rem_1fr_repeat(3,8rem)] gap-x-3 px-4 pb-2 text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" aria-hidden>
+                <span>Rank</span>
+                <span>Developer</span>
+                {METRICS.map((m) => (
+                  <span key={m.key} className="text-right">{m.label}</span>
+                ))}
+              </div>
+              <ol className="flex flex-col gap-2">
+                {ranked.map((row, i) => (
+                  <li
+                    key={row.username}
+                    className="grid grid-cols-[2.5rem_1fr] sm:grid-cols-[2.5rem_1fr_repeat(3,8rem)] items-center gap-x-3 gap-y-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-4 py-3"
+                  >
+                    <span className="text-lg font-black text-zinc-700 dark:text-zinc-300" aria-label={`Rank ${rankOf(i)}`}>
+                      #{rankOf(i)}
+                    </span>
+                    <Link href={`/${encodeURIComponent(row.username)}`} className="font-semibold underline-offset-2 hover:underline truncate">
+                      @{row.username}
+                    </Link>
+                    {METRICS.map((m) => (
+                      <span
+                        key={m.key}
+                        className={`col-start-2 sm:col-start-auto sm:text-right text-sm ${metric === m.key ? "font-bold" : "text-zinc-600 dark:text-zinc-400"}`}
+                      >
+                        <span className="sm:hidden">{m.label}: </span>
+                        {row.stats[m.key].toLocaleString()}
+                        {m.key !== "totalContributions" && " days"}
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ol>
+              </>
+            )}
+
+            {failed.length > 0 && (
+              <ul className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+                {failed.map((r) => (
+                  <li key={r.username}>
+                    @{r.username}: {r.error}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {!isLoading && rows.length === 0 && !formError && (
+          <div className="mt-12 flex flex-col items-center text-center text-zinc-600 dark:text-zinc-400">
+            <Users size={36} className="mb-3" aria-hidden />
+            <p>No leaderboard yet. Add a few usernames above to create one.</p>
+          </div>
+        )}
       </main>
     </div>
   );

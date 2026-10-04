@@ -1,10 +1,16 @@
 // GitHub API base url and helpers for fetching contribution data.
 
+import { addDaysUtc, todayUtc } from "./dates";
+
 const GITHUB_GRAPHQL_API = "https://api.github.com/graphql";
 
-type DateCount = { date: string; contributionCount: number };
-type ContributionDay = { date: string; contributionCount: number };
-type ContributionWeek = { contributionDays: ContributionDay[] };
+export interface ContributionDay {
+  date: string;
+  contributionCount: number;
+}
+interface ContributionWeek {
+  contributionDays: ContributionDay[];
+}
 
 export interface StreakStats {
   username: string;
@@ -46,24 +52,44 @@ export interface GitHubUserProfile {
   htmlUrl: string;
 }
 
-// Fetch all contribution years for a user
-async function fetchUserContributionYears(
-  username: string,
-): Promise<number[] | null> {
+/** Error talking to GitHub (bad token, upstream rate limit, outage). */
+export class GitHubApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public retryAfter?: number,
+  ) {
+    super(message);
+    this.name = "GitHubApiError";
+  }
+}
+
+interface GraphQLError {
+  type?: string;
+  message: string;
+}
+
+function retryAfterSeconds(res: Response): number | undefined {
+  const retryAfter = Number(res.headers.get("retry-after"));
+  if (retryAfter > 0) return retryAfter;
+  const reset = Number(res.headers.get("x-ratelimit-reset"));
+  if (reset > 0) return Math.max(1, Math.ceil(reset - Date.now() / 1000));
+  return undefined;
+}
+
+/**
+ * Run a GraphQL query. Returns `data` (with `user: null` when the user does
+ * not exist) and throws GitHubApiError for every other failure, so callers can
+ * tell "not found" apart from "GitHub is unavailable".
+ */
+async function githubGraphQL<T>(
+  query: string,
+  variables: Record<string, string>,
+): Promise<T> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
-    throw new Error("GITHUB_TOKEN is not set in environment variables");
+    throw new GitHubApiError("GITHUB_TOKEN is not configured on the server", 500);
   }
-
-  const query = `
-    query($login: String!) {
-      user(login: $login) {
-        contributionsCollection {
-          contributionYears
-        }
-      }
-    }
-  `;
 
   const res = await fetch(GITHUB_GRAPHQL_API, {
     method: "POST",
@@ -71,21 +97,56 @@ async function fetchUserContributionYears(
       Authorization: `bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query, variables: { login: username } }),
+    body: JSON.stringify({ query, variables }),
   });
 
+  if (res.status === 401) {
+    throw new GitHubApiError("The server's GitHub token is invalid", 500);
+  }
+  if (res.status === 403 || res.status === 429) {
+    throw new GitHubApiError(
+      "GitHub API rate limit reached",
+      429,
+      retryAfterSeconds(res),
+    );
+  }
   if (!res.ok) {
-    console.error(`Failed to fetch user years for ${username}`);
-    return null;
+    throw new GitHubApiError(`GitHub API responded with ${res.status}`, 502);
   }
 
-  const data = await res.json();
-  if (data.errors) {
-    console.error("GraphQL errors fetching years:", data.errors);
-    return null;
+  const body = (await res.json()) as { data?: T; errors?: GraphQLError[] };
+  const errors = (body.errors ?? []).filter((e) => e.type !== "NOT_FOUND");
+  if (errors.some((e) => e.type === "RATE_LIMITED")) {
+    throw new GitHubApiError(
+      "GitHub API rate limit reached",
+      429,
+      retryAfterSeconds(res),
+    );
   }
+  if (errors.length > 0 || !body.data) {
+    console.error("GitHub GraphQL errors:", body.errors);
+    throw new GitHubApiError("GitHub API returned an error", 502);
+  }
+  return body.data;
+}
 
-  return data.data?.user?.contributionsCollection?.contributionYears || null;
+// Fetch all contribution years for a user (null when the user doesn't exist)
+async function fetchUserContributionYears(
+  username: string,
+): Promise<number[] | null> {
+  const data = await githubGraphQL<{
+    user: { contributionsCollection: { contributionYears: number[] } } | null;
+  }>(
+    `query($login: String!) {
+      user(login: $login) {
+        contributionsCollection {
+          contributionYears
+        }
+      }
+    }`,
+    { login: username },
+  );
+  return data.user?.contributionsCollection.contributionYears ?? null;
 }
 
 // Fetch contribution data for a specific year range
@@ -93,10 +154,15 @@ async function fetchContributionsForYear(
   username: string,
   fromDate: string,
   toDate: string,
-): Promise<DateCount[]> {
-  const token = process.env.GITHUB_TOKEN;
-  const query = `
-    query($login: String!, $from: DateTime!, $to: DateTime!) {
+): Promise<ContributionDay[]> {
+  const data = await githubGraphQL<{
+    user: {
+      contributionsCollection: {
+        contributionCalendar: { weeks: ContributionWeek[] };
+      };
+    } | null;
+  }>(
+    `query($login: String!, $from: DateTime!, $to: DateTime!) {
       user(login: $login) {
         contributionsCollection(from: $from, to: $to) {
           contributionCalendar {
@@ -109,38 +175,111 @@ async function fetchContributionsForYear(
           }
         }
       }
+    }`,
+    { login: username, from: fromDate, to: toDate },
+  );
+
+  const weeks =
+    data.user?.contributionsCollection.contributionCalendar.weeks ?? [];
+  return weeks.flatMap((week) =>
+    week.contributionDays.map((day) => ({
+      date: day.date,
+      contributionCount: day.contributionCount,
+    })),
+  );
+}
+
+/**
+ * Pure streak calculation over GitHub contribution-calendar days.
+ *
+ * Rules (all dates are UTC calendar dates, see lib/dates.ts):
+ * - Days after `today` are ignored; duplicate dates are merged.
+ * - A streak is a run of consecutive calendar days with > 0 contributions.
+ *   Missing dates (e.g. a skipped year) break a streak.
+ * - The current streak ends today if today has contributions. If today has
+ *   none yet, the streak is still alive when yesterday had contributions
+ *   (the day isn't over). Otherwise it is 0.
+ * - averagePerDay = total contributions / number of calendar days up to today.
+ */
+export function calculateStreakStats(
+  username: string,
+  inputDays: ContributionDay[],
+  today: string = todayUtc(),
+): Omit<ExtendedStreakStats, "joinedYear"> {
+  const byDate = new Map<string, number>();
+  for (const day of inputDays) {
+    if (day.date > today) continue;
+    byDate.set(
+      day.date,
+      Math.max(byDate.get(day.date) ?? 0, day.contributionCount),
+    );
+  }
+  const dates = [...byDate.keys()].sort();
+
+  let totalContributions = 0;
+  let activeDays = 0;
+  let bestDay: ContributionDay | undefined;
+  let longestStreak = 0;
+  let longestStreakStart = "";
+  let longestStreakEnd = "";
+  let run = 0;
+  let runStart = "";
+  let prevDate = "";
+
+  for (const date of dates) {
+    const count = byDate.get(date) ?? 0;
+    totalContributions += count;
+    if (count > 0 && (!bestDay || count > bestDay.contributionCount)) {
+      bestDay = { date, contributionCount: count };
     }
-  `;
 
-  const res = await fetch(GITHUB_GRAPHQL_API, {
-    method: "POST",
-    headers: {
-      Authorization: `bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      query,
-      variables: { login: username, from: fromDate, to: toDate },
-    }),
-  });
+    if (count > 0) {
+      activeDays++;
+      if (run === 0 || addDaysUtc(prevDate, 1) !== date) {
+        run = 0;
+        runStart = date;
+      }
+      run++;
+      if (run > longestStreak) {
+        longestStreak = run;
+        longestStreakStart = runStart;
+        longestStreakEnd = date;
+      }
+    } else {
+      run = 0;
+    }
+    prevDate = date;
+  }
 
-  if (!res.ok) return [];
+  // Current streak: walk backwards from today (or yesterday if today is 0).
+  let currentStreak = 0;
+  let currentStreakStart = "";
+  let currentStreakEnd = "";
+  let cursor = (byDate.get(today) ?? 0) > 0 ? today : addDaysUtc(today, -1);
+  while ((byDate.get(cursor) ?? 0) > 0) {
+    if (currentStreak === 0) currentStreakEnd = cursor;
+    currentStreak++;
+    currentStreakStart = cursor;
+    cursor = addDaysUtc(cursor, -1);
+  }
 
-  const data = await res.json();
-  const weeks: ContributionWeek[] =
-    data.data?.user?.contributionsCollection?.contributionCalendar?.weeks || [];
-
-  const days: DateCount[] = [];
-  weeks.forEach((week) => {
-    week.contributionDays.forEach((day) => {
-      days.push({
-        date: day.date,
-        contributionCount: day.contributionCount,
-      });
-    });
-  });
-
-  return days;
+  return {
+    username,
+    totalContributions,
+    currentStreak,
+    longestStreak,
+    activeDays,
+    averagePerDay:
+      dates.length > 0
+        ? Number((totalContributions / dates.length).toFixed(2))
+        : 0,
+    bestDay,
+    totalContributionsStart: dates.find((d) => (byDate.get(d) ?? 0) > 0),
+    currentStreakStart: currentStreak > 0 ? currentStreakStart : undefined,
+    currentStreakEnd: currentStreak > 0 ? currentStreakEnd : undefined,
+    longestStreakStart: longestStreak > 0 ? longestStreakStart : undefined,
+    longestStreakEnd: longestStreak > 0 ? longestStreakEnd : undefined,
+  };
 }
 
 export async function fetchGitHubStreak(
@@ -163,217 +302,97 @@ export async function fetchGitHubStreak(
   };
 }
 
+/**
+ * Returns null when the user does not exist or has no contribution years.
+ * Throws GitHubApiError when GitHub itself fails.
+ */
 export async function fetchGitHubStreakExtended(
   username: string,
 ): Promise<ExtendedStreakStats | null> {
-  try {
-    const years = await fetchUserContributionYears(username);
-    if (!years || years.length === 0) return null;
+  const years = await fetchUserContributionYears(username);
+  if (!years || years.length === 0) return null;
 
-    // Fetch data for all years in parallel to be efficient
-    const yearPromises = years.map((year) => {
-      const from = `${year}-01-01T00:00:00Z`;
-      const to = `${year}-12-31T23:59:59Z`;
-      return fetchContributionsForYear(username, from, to);
-    });
+  // Fetch data for all years in parallel to be efficient
+  const yearsData = await Promise.all(
+    years.map((year) =>
+      fetchContributionsForYear(
+        username,
+        `${year}-01-01T00:00:00Z`,
+        `${year}-12-31T23:59:59Z`,
+      ),
+    ),
+  );
 
-    const yearsData = await Promise.all(yearPromises);
-
-    // Flatten and sort chronologically
-    const allDays = yearsData
-      .flat()
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    let totalContributions = 0;
-    let currentStreak = 0;
-    let longestStreak = 0;
-    let longestStreakStart = "";
-    let longestStreakEnd = "";
-    let activeDays = 0;
-    let bestDay: DateCount | undefined;
-
-    let tempStreak = 0;
-    let tempStreakStart = "";
-
-    const todayStr = new Date().toISOString().split("T")[0];
-    const yesterdayDate = new Date();
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
-
-    // We process days backwards for the current streak,
-    // but calculating longest streak is easier going forwards.
-    // Let's do a single pass going through all ascending days:
-    allDays.forEach((day) => {
-      totalContributions += day.contributionCount;
-
-      if (day.contributionCount > 0) {
-        activeDays++;
-      }
-
-      if (!bestDay || day.contributionCount > bestDay.contributionCount) {
-        bestDay = day;
-      }
-
-      if (day.contributionCount > 0) {
-        if (tempStreak === 0) {
-          tempStreakStart = day.date;
-        }
-        tempStreak++;
-        if (tempStreak > longestStreak) {
-          longestStreak = tempStreak;
-          longestStreakStart = tempStreakStart;
-          longestStreakEnd = day.date;
-        }
-      } else {
-        tempStreak = 0;
-      }
-    });
-
-    // Determine current streak by walking backward from today/yesterday
-    let curStreak = 0;
-    let curStreakStart = "";
-    let curStreakEnd = "";
-
-    for (let i = allDays.length - 1; i >= 0; i--) {
-      const day = allDays[i];
-      if (day.date > todayStr) continue; // Future dates shouldn't happen, but ignore if they do
-
-      if (day.date === todayStr && day.contributionCount === 0) {
-        // Today is 0. Streak could still be alive from yesterday.
-        continue;
-      }
-
-      if (day.contributionCount > 0) {
-        if (curStreak === 0) {
-          curStreakEnd = day.date;
-        }
-        curStreak++;
-        curStreakStart = day.date;
-      } else {
-        // If yesterday was 0 and today was 0 (checked above), streak is broken.
-        // Wait, if we are here, it means we hit a 0.
-        if (day.date === yesterdayStr && curStreak === 0) {
-          break;
-        }
-        if (day.date < yesterdayStr) {
-          break;
-        }
-      }
-    }
-
-    currentStreak = curStreak;
-    const firstActiveDay = allDays.find((d) => d.contributionCount > 0)?.date;
-    const averagePerDay =
-      allDays.length > 0
-        ? Number((totalContributions / allDays.length).toFixed(2))
-        : 0;
-
-    return {
-      username,
-      totalContributions,
-      currentStreak,
-      longestStreak,
-      activeDays,
-      averagePerDay,
-      bestDay: bestDay
-        ? {
-            date: bestDay.date,
-            contributionCount: bestDay.contributionCount,
-          }
-        : undefined,
-      joinedYear: years[years.length - 1],
-      totalContributionsStart: firstActiveDay,
-      currentStreakStart: curStreak > 0 ? curStreakStart : undefined,
-      currentStreakEnd: curStreak > 0 ? curStreakEnd : undefined,
-      longestStreakStart: longestStreak > 0 ? longestStreakStart : undefined,
-      longestStreakEnd: longestStreak > 0 ? longestStreakEnd : undefined,
-    };
-  } catch (err) {
-    console.error("Error fetching GitHub streak:", err);
-    return null;
-  }
+  return {
+    ...calculateStreakStats(username, yearsData.flat()),
+    joinedYear: Math.min(...years),
+  };
 }
 
-// Fetch user profile data from GitHub
+// Fetch user profile data from GitHub (null when the user doesn't exist)
 export async function fetchGitHubUserProfile(
   username: string,
 ): Promise<GitHubUserProfile | null> {
-  try {
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) {
-      throw new Error("GITHUB_TOKEN is not set in environment variables");
-    }
-
-    const query = `
-      query($login: String!) {
-        user(login: $login) {
-          login
-          id
-          avatarUrl(size: 256)
-          name
-          bio
-          email
-          followers {
-            totalCount
-          }
-          following {
-            totalCount
-          }
-          repositories(isFork: false, ownerAffiliations: OWNER, first: 50) {
-            totalCount
-          }
-          createdAt
-          twitterUsername
-          blog
-          company
-          location
-          htmlUrl
-        }
+  const data = await githubGraphQL<{
+    user: {
+      login: string;
+      databaseId: number;
+      avatarUrl: string;
+      name: string | null;
+      bio: string | null;
+      followers: { totalCount: number };
+      following: { totalCount: number };
+      repositories: { totalCount: number };
+      createdAt: string;
+      twitterUsername: string | null;
+      websiteUrl: string | null;
+      company: string | null;
+      location: string | null;
+      url: string;
+    } | null;
+  }>(
+    `query($login: String!) {
+      user(login: $login) {
+        login
+        databaseId
+        avatarUrl(size: 256)
+        name
+        bio
+        followers { totalCount }
+        following { totalCount }
+        repositories(privacy: PUBLIC, ownerAffiliations: OWNER, isFork: false) { totalCount }
+        createdAt
+        twitterUsername
+        websiteUrl
+        company
+        location
+        url
       }
-    `;
+    }`,
+    { login: username },
+  );
 
-    const res = await fetch(GITHUB_GRAPHQL_API, {
-      method: "POST",
-      headers: {
-        Authorization: `bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query, variables: { login: username } }),
-    });
+  const user = data.user;
+  if (!user) return null;
 
-    if (!res.ok) {
-      console.error(`Failed to fetch user profile for ${username}`);
-      return null;
-    }
-
-    const data = await res.json();
-    if (data.errors) {
-      console.error("GraphQL errors fetching profile:", data.errors);
-      return null;
-    }
-
-    const user = data.data?.user;
-    if (!user) return null;
-
-    return {
-      login: user.login,
-      id: user.id,
-      avatarUrl: user.avatarUrl,
-      name: user.name,
-      bio: user.bio,
-      email: user.email,
-      followers: user.followers.totalCount,
-      following: user.following.totalCount,
-      publicRepos: user.repositories.totalCount,
-      createdAt: user.createdAt,
-      twitterUsername: user.twitterUsername,
-      blog: user.blog,
-      company: user.company,
-      location: user.location,
-      htmlUrl: user.htmlUrl,
-    };
-  } catch (err) {
-    console.error("Error fetching GitHub profile:", err);
-    return null;
-  }
+  // GraphQL field names differ from the REST-style names this API exposes.
+  return {
+    login: user.login,
+    id: user.databaseId,
+    avatarUrl: user.avatarUrl,
+    name: user.name,
+    bio: user.bio,
+    // `email` needs the user:email scope, which a no-scope token lacks and
+    // would fail the whole query; it is kept in the response shape as null.
+    email: null,
+    followers: user.followers.totalCount,
+    following: user.following.totalCount,
+    publicRepos: user.repositories.totalCount,
+    createdAt: user.createdAt,
+    twitterUsername: user.twitterUsername,
+    blog: user.websiteUrl,
+    company: user.company,
+    location: user.location,
+    htmlUrl: user.url,
+  };
 }

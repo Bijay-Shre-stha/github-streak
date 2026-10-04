@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Index badge images (embeddable <img>), not JSON data endpoints
+Allow: /api/streak-image
+Allow: /api/streak-stats-image
+Disallow: /api/streak
+Disallow: /api/streak-compare
+Disallow: /api/profile
+
+Sitemap: https://github-streak-bijay-shre-stha.vercel.app/sitemap.xml

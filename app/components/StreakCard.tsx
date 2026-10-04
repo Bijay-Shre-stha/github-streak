@@ -1,26 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { ExtendedStreakStats } from "@/lib/github";
+import type { ReactElement } from "react";
+import type { StreakStats } from "@/lib/github";
 import { themes } from "@/lib/themes";
-import { Flame, Activity, Copy, Check } from "lucide-react";
+import { formatUtcDate as formatDate } from "@/lib/dates";
+import { readmeMarkdown } from "@/lib/share";
+import { resolveTheme } from "@/lib/validation";
+import { Flame, Activity } from "lucide-react";
+import { CopyButton } from "./CopyButton";
 
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-};
+interface StreakCardProps {
+  stats: StreakStats;
+  themeName?: string;
+  /** Show the README embed snippet + copy button (off for sample previews). */
+  showEmbed?: boolean;
+}
 
-export function StreakCard({ stats, themeName = "default" }: { stats: ExtendedStreakStats, themeName?: string }) {
-  const [copied, setCopied] = useState(false);
+export function StreakCard({
+  stats,
+  themeName = "default",
+  showEmbed = true,
+}: StreakCardProps): ReactElement {
   const theme = themes[themeName] || themes.default;
-
-  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-  const embedCode = `![GitHub Streak](${origin}/api/streak-image?username=${encodeURIComponent(stats.username)}&theme=${encodeURIComponent(themeName)})`;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(embedCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const embedCode = readmeMarkdown(stats.username, resolveTheme(themeName));
 
   // We assign css variables so we can use color-mix for opacities natively via inline styles
   const styles = {
@@ -44,7 +46,7 @@ export function StreakCard({ stats, themeName = "default" }: { stats: ExtendedSt
       >
         <div className="p-8 sm:p-10 flex flex-col gap-8 relative overflow-hidden">
 
-          <div className="absolute top-4 left-6 flex items-center gap-2 opacity-50">
+          <div className="absolute top-4 left-6 flex items-center gap-2 opacity-80">
             <Activity size={14} style={{ color: "var(--theme-text)" }} />
             <h3 className="text-xs font-semibold tracking-wide" style={{ color: "var(--theme-text)" }}>
               @{stats.username}
@@ -133,34 +135,34 @@ export function StreakCard({ stats, themeName = "default" }: { stats: ExtendedSt
           </div>
 
           {/* Footer markdown link utility */}
-          <div
-            className="flex flex-col items-start w-full gap-2 mt-4 pt-6 border-t"
-            style={{ borderColor: "var(--theme-border)" }}
-          >
-            <div className="flex w-full items-center justify-between px-1">
-              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--theme-text)" }}>Embed in your README</span>
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md transition-colors hover:bg-zinc-500/10 active:scale-95"
-                style={{ color: "var(--theme-title)" }}
-              >
-                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                {copied ? <span className="text-green-500">Copied!</span> : "Copy"}
-              </button>
-            </div>
-            <div className="w-full relative group">
+          {showEmbed && (
+            <div
+              className="flex flex-col items-start w-full gap-2 mt-4 pt-6 border-t"
+              style={{ borderColor: "var(--theme-border)" }}
+            >
+              <div className="flex w-full flex-wrap items-center justify-between gap-2 px-1">
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--theme-text)" }}>
+                  Embed in your README
+                </span>
+                <CopyButton
+                  text={embedCode}
+                  label="Copy README Markdown"
+                  className="hover:bg-zinc-500/10 border"
+                  style={{ color: "var(--theme-title)", borderColor: "var(--theme-border)" }}
+                />
+              </div>
               <code
-                className="block w-full overflow-x-auto whitespace-pre border rounded-lg px-4 py-3 text-xs font-mono transition-colors scrollbar-thin scrollbar-thumb-zinc-400 dark:scrollbar-thumb-zinc-600 outline-none focus:ring-2 focus:ring-zinc-400"
+                className="block w-full overflow-x-auto whitespace-pre border rounded-lg px-4 py-3 text-xs font-mono"
                 style={{
-                  backgroundColor: 'color-mix(in srgb, var(--theme-text) 5%, transparent)',
+                  backgroundColor: "color-mix(in srgb, var(--theme-text) 5%, transparent)",
                   borderColor: "var(--theme-border)",
-                  color: "var(--theme-text)"
+                  color: "var(--theme-text)",
                 }}
               >
                 {embedCode}
               </code>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
