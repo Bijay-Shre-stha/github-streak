@@ -1,0 +1,38 @@
+# GitHub Streak Stats
+
+> Free, open-source (MIT) web tool that shows a GitHub user's current contribution streak, longest streak and total contributions, and generates an SVG streak card to embed in a GitHub README. No account needed.
+
+## How it works
+
+- Data comes from the GitHub contribution calendar through the GitHub GraphQL API.
+- A streak is a run of consecutive UTC calendar days with at least one contribution. If today has none yet, a streak that reached yesterday still counts as current.
+- Private contributions are counted only when the user enables "Include private contributions on my profile" on GitHub, or when the server's GitHub token can access those repositories.
+- Card images may be cached for up to one hour.
+
+## Add a streak card to a README
+
+Replace YOUR_USERNAME:
+
+```markdown
+[![GitHub Streak](https://github-streak-bijay-shre-stha.vercel.app/api/streak-image?username=YOUR_USERNAME&theme=radical)](https://github-streak-bijay-shre-stha.vercel.app/YOUR_USERNAME?theme=radical)
+```
+
+Themes: default, github, radical, tokyonight, dracula, react.
+
+## API
+
+Limited to 60 requests per minute per IP.
+
+- `GET /api/streak?username=NAME` (optional `variant=extended`): JSON streak stats
+- `GET /api/streak-compare?userA=A&userB=B`: JSON comparison of two users
+- `GET /api/profile?username=NAME`: JSON public profile
+- `GET /api/streak-image?username=NAME` (optional `theme`): SVG card
+- `GET /api/streak-stats-image?username=NAME` (optional `theme`): SVG card with extra stats
+
+## Pages
+
+- [Streak lookup and comparison](https://github-streak-bijay-shre-stha.vercel.app/)
+- [Card themes](https://github-streak-bijay-shre-stha.vercel.app/themes)
+- [Leaderboard maker](https://github-streak-bijay-shre-stha.vercel.app/leaderboard)
+- [API playground](https://github-streak-bijay-shre-stha.vercel.app/api-playground)
+- [Source code](https://github.com/Bijay-Shre-stha/github-streak)

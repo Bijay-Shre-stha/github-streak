@@ -62,7 +62,7 @@ export function StreakCard({
                 className="text-4xl font-bold tracking-tight mb-2 transition-transform duration-300 transform hover:scale-110"
                 style={{ color: "var(--theme-total)" }}
               >
-                {stats.totalContributions.toLocaleString()}
+                {stats.totalContributions.toLocaleString("en-US")}
               </span>
               <span className="text-[13px] font-medium mb-2 tracking-wide" style={{ color: "var(--theme-total)" }}>
                 Total Contributions

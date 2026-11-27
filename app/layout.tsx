@@ -34,6 +34,9 @@ export const metadata: Metadata = {
   generator: "Next.js",
   applicationName: "GitHub Streak Stats",
   metadataBase: new URL(SITE_URL),
+  verification: {
+    google: "9yHS5bQ24EFAY2F-_DiY9V6qEwFpJylK0fuEf4rSl3I",
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -43,7 +46,7 @@ export const metadata: Metadata = {
     siteName: "GitHub Streak Stats",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "GitHub Streak Stats | Free Contribution Streak Tracker",
     description: "Track and display your GitHub contribution streak with our free online tool. Generate beautiful badges, compare developers, and embed stats in README files.",
     creator: "@bijay_stha_0817",

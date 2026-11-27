@@ -26,6 +26,8 @@ import { profileUrl, readmeMarkdown } from "@/lib/share";
 interface ProfileViewProps {
   username: string;
   initialTheme: string;
+  /** Server-fetched stats; null means fetch them in the browser. */
+  initialStats: ExtendedStreakStats | null;
 }
 
 interface LoadState {
@@ -38,14 +40,18 @@ interface LoadState {
 const BUTTON =
   "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800";
 
-export function ProfileView({ username, initialTheme }: ProfileViewProps): ReactElement {
+export function ProfileView({
+  username,
+  initialTheme,
+  initialStats,
+}: ProfileViewProps): ReactElement {
   const [theme, setTheme] = useState(initialTheme);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<LoadState>({
-    stats: null,
+    stats: initialStats,
     profile: null,
     error: null,
-    isLoading: true,
+    isLoading: !initialStats,
   });
 
   useEffect(() => {
@@ -53,8 +59,10 @@ export function ProfileView({ username, initialTheme }: ProfileViewProps): React
     // overwrite a newer one.
     const controller = new AbortController();
     const encoded = encodeURIComponent(username);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState((s) => ({ ...s, isLoading: true, error: null }));
+    if (!initialStats) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setState((s) => ({ ...s, isLoading: true, error: null }));
+    }
 
     const load = async (): Promise<void> => {
       // Profile details are optional decoration; a failure there must not hide the stats.
@@ -64,11 +72,14 @@ export function ProfileView({ username, initialTheme }: ProfileViewProps): React
       ).catch(() => null);
 
       try {
-        const stats = await getJson<ExtendedStreakStats>(
-          `/api/streak?username=${encoded}&variant=extended`,
-          controller.signal,
-        );
+        const stats =
+          initialStats ??
+          (await getJson<ExtendedStreakStats>(
+            `/api/streak?username=${encoded}&variant=extended`,
+            controller.signal,
+          ));
         const profile = await profilePromise;
+        if (controller.signal.aborted) return;
         setState({ stats, profile, error: null, isLoading: false });
         saveRecent(mergeRecent(loadRecent(), stats.username));
       } catch (err) {
@@ -87,7 +98,7 @@ export function ProfileView({ username, initialTheme }: ProfileViewProps): React
 
     void load();
     return () => controller.abort();
-  }, [username, attempt]);
+  }, [username, attempt, initialStats]);
 
   const changeTheme = (next: string): void => {
     setTheme(next);
@@ -227,6 +238,11 @@ export function ProfileView({ username, initialTheme }: ProfileViewProps): React
             </div>
 
             <div className="w-full space-y-6">
+              <p className="text-zinc-700 dark:text-zinc-300">
+                {stats.username} has a current GitHub streak of {stats.currentStreak} days
+                and a longest streak of {stats.longestStreak} days, with{" "}
+                {stats.totalContributions.toLocaleString("en-US")} total contributions.
+              </p>
               <StreakCard stats={stats} themeName={theme} />
               <div className="flex flex-wrap gap-2">
                 <CopyButton

@@ -28,7 +28,8 @@ Other `useEffect` hooks (such as syncing state back to the URL or performing API
 - `lib/github.ts` returns `null` for "user not found" and throws `GitHubApiError` for GitHub failures; routes map errors through `lib/apiErrors.ts` (429s carry `Retry-After`).
 - Client pages fetch with `getJson()` from `lib/apiClient.ts` and cancel stale requests with `AbortController`. The homepage fetches only on submit, example click, or initial URL load (no debounce).
 - All share/README URLs come from `lib/share.ts` (`SITE_URL` = `NEXT_PUBLIC_SITE_URL` or the production URL); copy actions use `app/components/CopyButton.tsx`.
-- `app/[username]/page.tsx` is a server component (validation, metadata) wrapping the client `ProfileView.tsx`.
+- `app/[username]/page.tsx` is a server component (validation, metadata) wrapping the client `ProfileView.tsx`. It server-renders the stats (cached 1 hour per UTC day, per-IP rate limited); the client fetches them only if that returns null.
+- Page metadata comes from `pageMetadata()` in `lib/seo.ts`; AI-readable summary is `public/llms.txt`.
 - `robots.txt` and `sitemap.xml` live in `public/`.
 
 ## Project Conventions

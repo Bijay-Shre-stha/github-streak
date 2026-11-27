@@ -56,7 +56,7 @@ export function checkRateLimit(identifier: string): {
  * Extract client IP from request headers
  * Works with various proxy setups (Cloudflare, Vercel, nginx, etc.)
  */
-export function getClientIP(request: Request): string {
+export function getClientIP(request: Pick<Request, "headers">): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     // x-forwarded-for can be a comma-separated list, take the first
