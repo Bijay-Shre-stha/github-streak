@@ -65,7 +65,7 @@ export function ExtraStatsCard({
                                 className="text-2xl font-bold mt-1"
                                 style={{ color: "var(--theme-title)" }}
                             >
-                                {stats.activeDays.toLocaleString()}
+                                {stats.activeDays.toLocaleString("en-US")}
                             </p>
                         </div>
                         <div
@@ -83,7 +83,7 @@ export function ExtraStatsCard({
                                 className="text-2xl font-bold mt-1"
                                 style={{ color: "var(--theme-title)" }}
                             >
-                                {stats.averagePerDay.toLocaleString(undefined, {
+                                {stats.averagePerDay.toLocaleString("en-US", {
                                     minimumFractionDigits: 0,
                                     maximumFractionDigits: 2,
                                 })}

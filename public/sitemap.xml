@@ -6,7 +6,7 @@
     <loc>https://github-streak-bijay-shre-stha.vercel.app/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
-    <lastmod>2026-09-12T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-27T00:00:00+00:00</lastmod>
   </url>
 
   <!-- Theme Gallery -->
@@ -14,7 +14,7 @@
     <loc>https://github-streak-bijay-shre-stha.vercel.app/themes</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-09-12T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-27T00:00:00+00:00</lastmod>
   </url>
 
   <!-- Leaderboard -->
@@ -22,7 +22,7 @@
     <loc>https://github-streak-bijay-shre-stha.vercel.app/leaderboard</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
-    <lastmod>2026-09-12T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-27T00:00:00+00:00</lastmod>
   </url>
 
   <!-- API Playground -->
@@ -30,7 +30,7 @@
     <loc>https://github-streak-bijay-shre-stha.vercel.app/api-playground</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
-    <lastmod>2026-09-12T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-27T00:00:00+00:00</lastmod>
   </url>
 
   <!-- Example profile pages (dynamic [username] route) -->

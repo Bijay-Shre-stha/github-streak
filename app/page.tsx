@@ -45,6 +45,18 @@ interface Query {
 
 const FAQ = [
   {
+    q: "What is a GitHub contribution streak?",
+    a: "A GitHub contribution streak is the number of consecutive days on which a user has at least one contribution on their GitHub contribution calendar. The current streak is the run that is still active; the longest streak is the longest run ever recorded.",
+  },
+  {
+    q: "What counts as a GitHub contribution?",
+    a: "GitHub decides what appears on the contribution calendar. It includes commits to a repository’s default or gh-pages branch, opened issues and pull requests, pull request reviews and started discussions. Commits in forks do not count until they are merged into the original repository.",
+  },
+  {
+    q: "Is GitHub Streak Stats free?",
+    a: "Yes. It is free, open source under the MIT license, and needs no account or sign-in.",
+  },
+  {
     q: "Are private contributions included?",
     a: "Only when GitHub exposes them. Counts come from the GitHub contribution calendar, which includes private contributions when the user has enabled “Include private contributions on my profile” in their GitHub settings, or when this site's GitHub token has access to those repositories. Otherwise only public contributions are counted.",
   },
@@ -332,6 +344,9 @@ export default function Home(): ReactElement {
           ]),
         }}
       />
+
+      {/* React hoists this into <head>; ?username= variants canonicalize here. */}
+      <link rel="canonical" href={SITE_URL} />
 
       {/* Background gradients */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
